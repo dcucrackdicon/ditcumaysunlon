@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 5000;
 // === Trạng thái và Cấu hình API ===
 // ===================================
 let apiResponseData = {
-    id: "@ghetvietcode - @tranbinh012 - @Phucdzvl2222",
+    id: ĐỊT MẸ HỎI THẬT THẰNG NHẬT QUANG CÓ TRÌNH KO,
     phien: null,
     xuc_xac_1: null,
     xuc_xac_2: null,
