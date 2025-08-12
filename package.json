@@ -1,10 +1,9 @@
 {
   "name": "sunwin-api",
   "version": "1.0.0",
-  "description": "",
-  "main": "server.js", // Hoặc tên file chính của bạn
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js" // Lệnh để Render chạy app
+    "start": "node server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
