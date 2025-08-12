@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 5000;
 // === Trạng thái và Cấu hình API ===
 // ===================================
 let apiResponseData = {
-    id: ĐỊT MẸ HỎI THẬT THẰNG NHẬT QUANG CÓ TRÌNH KO,
+    id: "ĐỊT MẸ MÀY T HỎI THẬT THẰNG NHỰT QUANG CÓ TRÌNH K ? TẤT NHIÊN LÀ ĐÉO 😂😂", // <-- BẠN CÓ THỂ DÁN NỘI DUNG CỦA BẠN VÀO ĐÂY
     phien: null,
     xuc_xac_1: null,
     xuc_xac_2: null,
@@ -189,7 +189,7 @@ function connectWebSocket() {
 
                 // Cập nhật dữ liệu trả về của API
                 apiResponseData = {
-                    ...apiResponseData, // Giữ lại id
+                    ...apiResponseData, // Giữ lại id đã thay đổi
                     phien: currentSessionId,
                     xuc_xac_1: d1,
                     xuc_xac_2: d2,
