@@ -9,30 +9,159 @@ app.use(cors());
 const PORT = process.env.PORT || 5000;
 
 // ===================================
+// === CƠ SỞ DỮ LIỆU THUẬT TOÁN MỚI ===
+// ===================================
+
+// Lưu ý: Các key trùng lặp đã được hợp nhất, giữ lại giá trị cuối cùng bạn cung cấp.
+const PATTERN_DATA = {
+    "ttx": {"tai": 70, "xiu": 30},
+    "xxt": {"tai": 30, "xiu": 70},
+    "txt": {"tai": 65, "xiu": 35},
+    "xtx": {"tai": 35, "xiu": 65},
+    "txtx": {"tai": 60, "xiu": 40}, 
+    "xtxt": {"tai": 40, "xiu": 60},
+    "tttt": {"tai": 85, "xiu": 15}, 
+    "xxxx": {"tai": 15, "xiu": 85},
+    "tttx": {"tai": 75, "xiu": 25}, 
+    "xxxt": {"tai": 25, "xiu": 75},
+    "ttttt": {"tai": 88, "xiu": 12}, 
+    "xxxxx": {"tai": 12, "xiu": 88},
+    "txtxt": {"tai": 65, "xiu": 35}, 
+    "xtxtx": {"tai": 35, "xiu": 65},
+    "ttxttx": {"tai": 80, "xiu": 20},
+    "xxttxx": {"tai": 25, "xiu": 75}, // key "xxttxx" được cập nhật giá trị cuối
+    "t_t_x_x_t_t": {"tai": 80, "xiu": 20},
+    "ttxtx": {"tai": 78, "xiu": 22}, 
+    "xxtxt": {"tai": 22, "xiu": 78},
+    "tttttt": {"tai": 92, "xiu": 8}, 
+    "xxxxxx": {"tai": 8, "xiu": 92},
+    "txtxtx": {"tai": 82, "xiu": 18}, 
+    "xtxtxt": {"tai": 18, "xiu": 82},
+    "ttxtxt": {"tai": 85, "xiu": 15}, 
+    "xxtxtx": {"tai": 15, "xiu": 85},
+    "txtxxt": {"tai": 83, "xiu": 17}, 
+    "xtxttx": {"tai": 17, "xiu": 83},
+    "txtxtxt": {"tai": 70, "xiu": 30}, 
+    "xtxtxtx": {"tai": 30, "xiu": 70},
+    "ttttttt": {"tai": 95, "xiu": 5}, 
+    "xxxxxxx": {"tai": 5, "xiu": 95},
+    "tttttttt": {"tai": 97, "xiu": 3}, 
+    "xxxxxxxx": {"tai": 3, "xiu": 97},
+    "ttttttttttttx": {"tai": 95, "xiu": 5},
+    "tttttttttttxt": {"tai": 5, "xiu": 95},
+    "tttttttttttxx": {"tai": 5, "xiu": 95},
+};
+
+const SUNWIN_ALGORITHM = {
+    "3-10": {"tai": 0, "xiu": 100},
+    "11": {"tai": 10, "xiu": 90},
+    "12": {"tai": 20, "xiu": 80},
+    "13": {"tai": 35, "xiu": 65},
+    "14": {"tai": 45, "xiu": 55},
+    "15": {"tai": 65, "xiu": 35},
+    "16": {"tai": 80, "xiu": 20},
+    "17": {"tai": 90, "xiu": 10},
+    "18": {"tai": 100, "xiu": 0}
+};
+
+// ===================================
 // === Biến lưu trạng thái API và Thống kê ===
 // ===================================
 let apiResponseData = {
     id: "@ghetvietcode - @tranbinh012 - @Phucdzvl2222",
-    Phien: null,
-    Xuc_xac_1: null,
-    Xuc_xac_2: null,
-    Xuc_xac_3: null,
-    Tong: null,
+    Phien: null, Xuc_xac_1: null, Xuc_xac_2: null, Xuc_xac_3: null, Tong: null,
     Ket_qua: "Đang chờ...",
     Pattern: "",
-    Du_doan: "Đang chờ...", // Dự đoán cho phiên sắp tới
-    giai_thich: "Đang khởi tạo...", // Giải thích cho dự đoán
-    result: "Chưa xác định", // Kết quả của dự đoán cho phiên vừa rồi (Đúng/Sai)
-    "Đúng": 0,
-    "Sai": 0,
+    Du_doan: "Đang chờ...",
+    ty_le_thanh_cong: "0%",
+    giai_thich: "Đang khởi tạo...",
+    result: "Chưa xác định",
+    "Đúng": 0, "Sai": 0,
 };
 
 let id_phien_chua_co_kq = null;
-let lichSuPhienDayDu = []; // ⭐ LƯU LỊCH SỬ ĐẦY ĐỦ {Tong, Ket_qua}
-let duDoanHienTai = "?"; // ⭐ LƯU DỰ ĐOÁN ('T' or 'X') CHO PHIÊN SẮP TỚI
+let lichSuPhienDayDu = []; 
+let duDoanHienTai = "?"; 
 
-const WEBSOCKET_URL = "wss://websocket.azhkthg1.net/websocket?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhbW91bnQiOjAsInVzZXJuYW1lIjoiU0NfYXBpc3Vud2luMTIzIn0.hgrRbSV6vnBwJMg9ZFtbx3rRu9mX_hZMZ_m5gMNhkw0";
+// ===================================
+// === Thuật Toán Kết Hợp Mới ===
+// ===================================
+function analyzeAndPredict(history) {
+    if (history.length === 0) {
+        return { du_doan: "?", giai_thich: "Chưa có dữ liệu lịch sử.", ty_le: "0%" };
+    }
+
+    const historyString = history.map(p => p.Ket_qua.toLowerCase()).join('');
+    const lastSession = history[history.length - 1];
+    let reasons = [];
+
+    // 1. Phân tích Pattern (Trọng số 70%)
+    let patternRule = null;
+    let patternWeight = 0.7;
+    for (let len = 13; len >= 3; len--) { // Ưu tiên tìm pattern dài nhất
+        if (historyString.length >= len) {
+            const sub = historyString.slice(-len);
+            if (PATTERN_DATA[sub]) {
+                patternRule = PATTERN_DATA[sub];
+                reasons.push(`Mẫu [${sub.toUpperCase()}] được áp dụng (Tỷ lệ T/X: ${patternRule.tai}/${patternRule.xiu})`);
+                break;
+            }
+        }
+    }
+
+    // 2. Phân tích Điểm phiên trước (Trọng số 30%)
+    let sunwinRule = null;
+    let sunwinWeight = 0.3;
+    const lastTotal = lastSession.Tong;
+    if (lastTotal >= 3 && lastTotal <= 10) {
+        sunwinRule = SUNWIN_ALGORITHM["3-10"];
+    } else if (SUNWIN_ALGORITHM[lastTotal]) {
+        sunwinRule = SUNWIN_ALGORITHM[lastTotal];
+    }
+    if(sunwinRule) {
+        reasons.push(`Điểm phiên trước [${lastTotal}] được áp dụng (Tỷ lệ T/X: ${sunwinRule.tai}/${sunwinRule.xiu})`);
+    }
+
+    // 3. Tính toán kết quả cuối cùng
+    let finalTai = 0;
+    let finalXiu = 0;
+
+    if (patternRule && sunwinRule) {
+        finalTai = (patternRule.tai * patternWeight) + (sunwinRule.tai * sunwinWeight);
+        finalXiu = (patternRule.xiu * patternWeight) + (sunwinRule.xiu * sunwinWeight);
+    } else if (patternRule) {
+        finalTai = patternRule.tai;
+        finalXiu = patternRule.xiu;
+    } else if (sunwinRule) {
+        finalTai = sunwinRule.tai;
+        finalXiu = sunwinRule.xiu;
+    } else {
+        return { du_doan: "?", giai_thich: "Không tìm thấy quy tắc nào phù hợp.", ty_le: "N/A" };
+    }
+    
+    let prediction = "?";
+    let confidence = "0%";
+    if (finalTai > finalXiu) {
+        prediction = 'T';
+        confidence = `${Math.round(finalTai)}%`;
+    } else if (finalXiu > finalTai) {
+        prediction = 'X';
+        confidence = `${Math.round(finalXiu)}%`;
+    }
+    
+    return {
+        du_doan: prediction,
+        giai_thich: reasons.join('; '),
+        ty_le: confidence,
+    };
+}
+
+
+// ===================================
+// === WebSocket Client & Server Logic (Không đổi) ===
+// ===================================
 const WS_HEADERS = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36", "Origin": "https://play.sun.win" };
+const WEBSOCKET_URL = "wss://websocket.azhkthg1.net/websocket?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhbW91bnQiOjAsInVzZXJuYW1lIjoiU0NfYXBpc3Vud2luMTIzIn0.hgrRbSV6vnBwJMg9ZFtbx3rRu9mX_hZMZ_m5gMNhkw0";
 const RECONNECT_DELAY = 2500;
 const PING_INTERVAL = 15000;
 const MAX_HISTORY = 20;
@@ -43,110 +172,6 @@ const initialMessages = [
     [6, "MiniGame", "lobbyPlugin", { cmd: 10001 }]
 ];
 
-// ===================================
-// === Thuật Toán Dự Đoán Siêu Cấp (Đã dịch từ Python) ===
-// ===================================
-function analyzeAndPredictUltimate(history) {
-    const patternArr = history.map(p => p.Ket_qua);
-    if (patternArr.length < 4) {
-        return { du_doan: "?", giai_thich: "Chưa đủ dữ liệu (cần >= 4 phiên) để phân tích đa chiều." };
-    }
-
-    const reversed_history = patternArr.slice().reverse();
-    let score = { 'T': 0, 'X': 0 };
-    let reasons = [];
-
-    // --- Phân tích Cầu Bệt ---
-    if (reversed_history.length >= 4) {
-        if (reversed_history.slice(0, 4).every(h => h === 'T')) {
-            score['T'] += 5;
-            reasons.push("Bệt Tài (>=4) -> +5 điểm cho TÀI");
-        } else if (reversed_history.slice(0, 4).every(h => h === 'X')) {
-            score['X'] += 5;
-            reasons.push("Bệt Xỉu (>=4) -> +5 điểm cho XỈU");
-        }
-    }
-    if (reversed_history.length >= 8) {
-        if (reversed_history.slice(0, 8).every(h => h === 'T')) {
-            score['X'] += 10;
-            reasons.push("Bệt Tài quá dài (>=8), khả năng bẻ cao -> +10 điểm cho XỈU");
-        } else if (reversed_history.slice(0, 8).every(h => h === 'X')) {
-            score['T'] += 10;
-            reasons.push("Bệt Xỉu quá dài (>=8), khả năng bẻ cao -> +10 điểm cho TÀI");
-        }
-    }
-
-    // --- Phân tích Cầu 1-1 và 2-2 ---
-    // Lưu ý: JSON.stringify là cách đơn giản để so sánh 2 mảng trong JS
-    if (reversed_history.length >= 4) {
-        const last4 = JSON.stringify(reversed_history.slice(0, 4));
-        if (last4 === JSON.stringify(['X', 'T', 'X', 'T'])) { // Mẫu gần nhất là X-T-X-T -> dự đoán T
-            score['T'] += 4;
-            reasons.push("Cầu 1-1 (XTXT) -> +4 điểm cho TÀI");
-        } else if (last4 === JSON.stringify(['T', 'X', 'T', 'X'])) { // Mẫu gần nhất là T-X-T-X -> dự đoán X
-            score['X'] += 4;
-            reasons.push("Cầu 1-1 (TXTX) -> +4 điểm cho XỈU");
-        } else if (last4 === JSON.stringify(['X', 'X', 'T', 'T'])) { // Mẫu gần nhất là X-X-T-T -> dự đoán T
-            score['T'] += 3;
-            reasons.push("Cầu 2-2 (XXTT) -> +3 điểm cho TÀI");
-        } else if (last4 === JSON.stringify(['T', 'T', 'X', 'X'])) { // Mẫu gần nhất là T-T-X-X -> dự đoán X
-            score['X'] += 3;
-            reasons.push("Cầu 2-2 (TTXX) -> +3 điểm cho XỈU");
-        }
-    }
-    
-    // --- Phân tích Cầu Nâng Cao (Nhịp) ---
-    if (reversed_history.length >= 6) {
-        const last6 = JSON.stringify(reversed_history.slice(0, 6));
-        if (last6 === JSON.stringify(['T', 'T', 'T', 'X', 'X', 'T'])) { // 3T-2X-1T -> dự đoán X
-             score['X'] += 7;
-             reasons.push("Cầu 3-2-1 -> +7 điểm cho XỈU");
-        } else if (last6 === JSON.stringify(['X', 'X', 'X', 'T', 'T', 'X'])) { // 3X-2T-1X -> dự đoán T
-             score['T'] += 7;
-             reasons.push("Cầu 3-2-1 -> +7 điểm cho TÀI");
-        } else if (last6 === JSON.stringify(['T', 'T', 'T', 'X', 'X', 'T'])) { // 1T-2X-3T -> dự đoán X
-             score['X'] += 7;
-             reasons.push("Cầu 1-2-3 -> +7 điểm cho XỈU");
-        } else if (last6 === JSON.stringify(['X', 'X', 'X', 'T', 'T', 'X'])) { // 1X-2T-3X -> dự đoán T
-             score['T'] += 7;
-             reasons.push("Cầu 1-2-3 -> +7 điểm cho TÀI");
-        }
-    }
-
-    // --- Đưa ra quyết định cuối cùng ---
-    const diff = Math.abs(score['T'] - score['X']);
-    const threshold = 5; // Ngưỡng chênh lệch điểm tối thiểu để ra quyết định
-    let final_prediction = "?";
-    let decision_reason = `Tổng điểm (Tài: ${score.T} - Xỉu: ${score.X}). `;
-
-    if (reasons.length === 0) {
-        decision_reason += "Không phát hiện được cầu nào rõ ràng. Nên chờ.";
-    } else {
-        if (diff >= threshold) {
-            if (score['T'] > score['X']) {
-                final_prediction = 'T';
-                decision_reason += `Điểm TÀI vượt trội. Chênh lệch ${diff} điểm.`;
-            } else {
-                final_prediction = 'X';
-                decision_reason += `Điểm XỈU vượt trội. Chênh lệch ${diff} điểm.`;
-            }
-        } else {
-            decision_reason += `Chênh lệch điểm (${diff}) không đủ lớn (yêu cầu >= ${threshold}). Không có cầu đủ mạnh.`;
-        }
-    }
-    
-    // Nối các lý do phân tích vào giải thích cuối cùng
-    const full_explanation = reasons.length > 0 
-        ? `Các yếu tố: [${reasons.join('; ')}]. ${decision_reason}` 
-        : decision_reason;
-
-    return { du_doan: final_prediction, giai_thich: full_explanation };
-}
-
-
-// ===================================
-// === WebSocket Client ===
-// ===================================
 let ws = null, pingInterval = null, reconnectTimeout = null;
 
 function connectWebSocket() {
@@ -164,23 +189,22 @@ function connectWebSocket() {
         try {
             const data = JSON.parse(message);
             if (!Array.isArray(data) || typeof data[1] !== 'object') return;
-
             const { cmd, sid, d1, d2, d3, gBB } = data[1];
 
             if (cmd === 1008 && sid) {
                 id_phien_chua_co_kq = sid;
-                const prediction = analyzeAndPredictUltimate(lichSuPhienDayDu); // ⭐ SỬ DỤNG THUẬT TOÁN MỚI
+                const prediction = analyzeAndPredict(lichSuPhienDayDu); // ⭐ ÁP DỤNG THUẬT TOÁN MỚI
                 duDoanHienTai = prediction.du_doan;
-                apiResponseData.Du_doan = (duDoanHienTai === "?") ? " chờ cầu " : (duDoanHienTai === "T" ? "Tài" : "Xỉu");
+                apiResponseData.Du_doan = (duDoanHienTai === "?") ? "Chờ Cầu" : (duDoanHienTai === "T" ? "Tài" : "Xỉu");
                 apiResponseData.giai_thich = prediction.giai_thich;
+                apiResponseData.ty_le_thanh_cong = prediction.ty_le;
                 
                 console.log(`\n[🆕] Phiên mới #${sid}. Bắt đầu phân tích...`);
-                console.log(`[🔮] Dự đoán: ${apiResponseData.Du_doan} \n   -> Lý do: ${apiResponseData.giai_thich}`);
+                console.log(`[🔮] Dự đoán: ${apiResponseData.Du_doan} (${apiResponseData.ty_le_thanh_cong}) \n   -> Lý do: ${apiResponseData.giai_thich}`);
             }
 
             if (cmd === 1003 && gBB) {
                 if (!d1 || !d2 || !d3) return;
-
                 const tong = d1 + d2 + d3;
                 const ketQuaThucTe = (tong > 10) ? "T" : "X";
                 
@@ -222,9 +246,6 @@ function connectWebSocket() {
     ws.on('error', (err) => { ws.close(); console.error('[❌] WebSocket error:', err.message); });
 }
 
-// ===================================
-// === API Endpoint ===
-// ===================================
 app.get('/sunlon', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(apiResponseData, null, 2));
@@ -234,9 +255,6 @@ app.get('/', (req, res) => {
     res.send(`<h2>🎯 Kết quả Sunwin Tài Xỉu (API Phân Tích)</h2><p><a href="/sunlon">Xem kết quả JSON tại /sunlon</a></p>`);
 });
 
-// ===================================
-// === Khởi động Server ===
-// ===================================
 app.listen(PORT, () => {
     console.log(`[🌐] Server is running at http://localhost:${PORT}`);
     connectWebSocket();
