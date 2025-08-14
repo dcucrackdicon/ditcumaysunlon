@@ -106,7 +106,6 @@ function connectWebSocket() {
                 const resultText = (total > 10) ? 'Tài' : 'Xỉu';
                 const result = (total > 10) ? "T" : "X";
 
-                // Cập nhật lịch sử
                 patternHistory.push(result);
                 if (patternHistory.length > MAX_PATTERN_HISTORY) {
                     patternHistory.shift();
@@ -123,23 +122,13 @@ function connectWebSocket() {
                     fullGameHistory.pop();
                 }
                 
-                // ==========================================================
-                // === LOGIC ĐẢO NGƯỢC DỰ ĐOÁN ĐƯỢC THÊM VÀO TẠI ĐÂY ===
-                // ==========================================================
-                
-                // 1. Lấy dự đoán gốc từ thuật toán
                 const originalPrediction = analyzeAndPredict(fullGameHistory);
 
-                // 2. Đảo ngược kết quả dự đoán (Tài -> Xỉu, Xỉu -> Tài)
                 let invertedDuDoan = "?";
                 if (originalPrediction.du_doan !== "?") {
                     invertedDuDoan = originalPrediction.du_doan === 'Tài' ? 'Xỉu' : 'Tài';
                 }
 
-                // 3. Tạo lời giải thích mới để ghi rõ là đã đảo ngược
-                const invertedGiaiThich = `[ĐẢO NGƯỢC] TT gốc đoán ${originalPrediction.du_doan}. ${originalPrediction.giai_thich}`;
-
-                // 4. Cập nhật vào đối tượng API với kết quả đã đảo ngược
                 apiResponseData = {
                     ...apiResponseData,
                     phien: currentSessionId,
@@ -148,15 +137,13 @@ function connectWebSocket() {
                     xuc_xac_3: d3,
                     tong: total,
                     ket_qua: resultText,
-                    du_doan: invertedDuDoan, // Sử dụng dự đoán đã đảo ngược
-                    ty_le_thanh_cong: originalPrediction.ty_le_thanh_cong, // Giữ nguyên tỷ lệ
-                    giai_thich: invertedGiaiThich, // Sử dụng giải thích mới
+                    du_doan: invertedDuDoan,
+                    ty_le_thanh_cong: originalPrediction.ty_le_thanh_cong,
+                    giai_thich: originalPrediction.giai_thich,
                     pattern: patternHistory.join('')
                 };
                 
-                // ==========================================================
-                
-                console.log(`[GAME] Phiên ${apiResponseData.phien}: ${apiResponseData.tong} (${apiResponseData.ket_qua}) | Dự đoán Đảo ngược: ${apiResponseData.du_doan} (Gốc: ${originalPrediction.du_doan})`);
+                console.log(`[GAME] Phiên ${apiResponseData.phien}: ${apiResponseData.tong} (${apiResponseData.ket_qua}) | Dự đoán: ${apiResponseData.du_doan}`);
                 
                 currentSessionId = null;
             }
