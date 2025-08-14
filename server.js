@@ -40,7 +40,6 @@ const RECONNECT_DELAY = 3000;
 const PING_INTERVAL = 15000;
 const MAX_PATTERN_HISTORY = 1000;
 
-// Các message khởi tạo cần gửi sau khi kết nối thành công
 const initialMessages = [
     [1, "MiniGame", "GM_freeallala", "00000000", { "info": "{\"ipAddress\":\"2001:ee0:1a67:a4ff:c44b:cb:f74c:232e\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiJuY2Juc25zYiIsImJvdCI6MCwiaXNNZXJjaGFudCI6ZmFsc2UsInZlcmlmaWVkQmFua0FjY291bnQiOmZhbHNlLCJwbGF5RXZlbnRMb2JieSI6ZmFsc2UsImN1c3RvbWVySWQiOjMxMjQ0MDc1MSwiYWZmSWQiOiJkZWZhdWx0IiwiYmFubmVkIjpmYWxzZSwiYnJhbmQiOiJnZW0iLCJ0aW1lc3RhbXAiOjE3NTUxMjM3MzM5MTYsImxvY2tHYW1lcyI6W10sImFtb3VudCI6MCwibG9ja0NoYXQiOmZhbHNlLCJwaG9uZVZlcmlmaWVkIjpmYWxzZSwiaXBBZGRyZXNzIjoiMjAwMTplZTA6MWE2NzphNGZmOmM0NGI6Y2I6Zjc0YzoyMzJlIiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8yMC5wbmciLCJwbGF0Zm9ybUlkIjo1LCJ1c2VySWQiOiJkYTIwNDliMy0wZmI3LTRkMGUtYjcwZS1hNzFkOThlOTVhOWEiLCJyZWdUaW1lIjoxNzU1MTIzNjI3ODQ0LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2ZyZWVhbGxhbGEifQ.1_TOsgvoOC0a9npbrSmg3C5rRP3sLdJUFIyB0vael3E\",\"locale\":\"vi\",\"userId\":\"da2049b3-0fb7-4d0e-b70e-a71d98e95a9a\",\"username\":\"GM_freeallala\",\"timestamp\":1755123733916,\"refreshToken\":\"db2b9da2c3264625b601a3d76d83b69f.6054e3c11d244bc48b4b8d7b0459f98d\"}", "signature": "279EFBD41388A221A4D3C44DFE320DA68FF51D935E69E28C339D81BC9E023D1D6F88336DB8025A3106EC5BCE0BF9D20B41DBACBAF844CB160326A62D90FBC8DFE55BB003BBE951773909E0F29426052AC2B3E1333C932CC70D0028878FD037EBFF0FA371216F23C08E2F126B1A882DBC6B1078ED44B40519CF7E8F5C772DF8DF" }],
     [6, "MiniGame", "taixiuPlugin", { cmd: 1005 }],
@@ -104,9 +103,10 @@ function connectWebSocket() {
 
             if (cmd === 1003 && gBB && d1 !== undefined && d2 !== undefined && d3 !== undefined) {
                 const total = d1 + d2 + d3;
+                const resultText = (total > 10) ? 'Tài' : 'Xỉu';
                 const result = (total > 10) ? "T" : "X";
-                const resultText = (result === 'T') ? 'Tài' : 'Xỉu';
 
+                // Cập nhật lịch sử
                 patternHistory.push(result);
                 if (patternHistory.length > MAX_PATTERN_HISTORY) {
                     patternHistory.shift();
@@ -123,8 +123,23 @@ function connectWebSocket() {
                     fullGameHistory.pop();
                 }
                 
-                const prediction = analyzeAndPredict(patternHistory);
+                // ==========================================================
+                // === LOGIC ĐẢO NGƯỢC DỰ ĐOÁN ĐƯỢC THÊM VÀO TẠI ĐÂY ===
+                // ==========================================================
+                
+                // 1. Lấy dự đoán gốc từ thuật toán
+                const originalPrediction = analyzeAndPredict(fullGameHistory);
 
+                // 2. Đảo ngược kết quả dự đoán (Tài -> Xỉu, Xỉu -> Tài)
+                let invertedDuDoan = "?";
+                if (originalPrediction.du_doan !== "?") {
+                    invertedDuDoan = originalPrediction.du_doan === 'Tài' ? 'Xỉu' : 'Tài';
+                }
+
+                // 3. Tạo lời giải thích mới để ghi rõ là đã đảo ngược
+                const invertedGiaiThich = `[ĐẢO NGƯỢC] TT gốc đoán ${originalPrediction.du_doan}. ${originalPrediction.giai_thich}`;
+
+                // 4. Cập nhật vào đối tượng API với kết quả đã đảo ngược
                 apiResponseData = {
                     ...apiResponseData,
                     phien: currentSessionId,
@@ -133,13 +148,15 @@ function connectWebSocket() {
                     xuc_xac_3: d3,
                     tong: total,
                     ket_qua: resultText,
-                    du_doan: (prediction.du_doan === "?") ? "?" : (prediction.du_doan === "T" ? "Tài" : "Xỉu"),
-                    ty_le_thanh_cong: prediction.ty_le_thanh_cong,
-                    giai_thich: prediction.giai_thich,
+                    du_doan: invertedDuDoan, // Sử dụng dự đoán đã đảo ngược
+                    ty_le_thanh_cong: originalPrediction.ty_le_thanh_cong, // Giữ nguyên tỷ lệ
+                    giai_thich: invertedGiaiThich, // Sử dụng giải thích mới
                     pattern: patternHistory.join('')
                 };
-
-                console.log(`[GAME] Phiên ${apiResponseData.phien}: ${apiResponseData.tong} (${apiResponseData.ket_qua}) | Dự đoán: ${apiResponseData.du_doan} | Pattern: ...${patternHistory.slice(-10).join('')}`);
+                
+                // ==========================================================
+                
+                console.log(`[GAME] Phiên ${apiResponseData.phien}: ${apiResponseData.tong} (${apiResponseData.ket_qua}) | Dự đoán Đảo ngược: ${apiResponseData.du_doan} (Gốc: ${originalPrediction.du_doan})`);
                 
                 currentSessionId = null;
             }
@@ -190,4 +207,3 @@ app.listen(PORT, () => {
     console.log(`[🌐] Server đang chạy tại http://localhost:${PORT}`);
     connectWebSocket();
 });
-
