@@ -113,7 +113,8 @@ function analyzeResultSequences(history) {
     mostCommonPattern: mostCommonPattern,
     switchRate: switches / (results.length - 1),
     currentStreak: calculateCurrentStreak(results),
-    taiXiuRatio: results.filter(r => r === 'Tài').length / results.length
+    // LỖI Ở ĐÂY: Đã sửa từ 'Tài' thành 'T'
+    taiXiuRatio: results.filter(r => r === 'T').length / results.length
   };
 }
 
@@ -136,7 +137,8 @@ function calculateMarketVolatility(history) {
 
 function calculateStatisticalTrends(history) {
   const results = history.map(r => r.result);
-  const taiCount = results.filter(r => r === 'Tài' || r === 'T').length;
+  // LỖI Ở ĐÂY: Đã sửa từ 'Tài' || 'T' thành chỉ 'T' cho nhất quán
+  const taiCount = results.filter(r => r === 'T').length;
   const xiuCount = results.length - taiCount;
   
   const cycles = detectCycles(results);
@@ -372,7 +374,7 @@ function calculateFinalPrediction(predictions, weights) {
   });
 
   if (taiScore === 0 && xiuScore === 0) {
-      return { prediction: Math.random() < 0.5 ? 'T' : 'X', confidence: 0.5, mainReason: 'No conclusive data, making a random guess.' };
+      return { prediction: null, confidence: 0, mainReason: 'No conclusive data from any model.' };
   }
 
   const volatilityAdjustment = predictions.volatilityAdjustment.adjustment;
@@ -399,7 +401,7 @@ function calculateStandardDeviation(values) {
 }
 
 function calculateCurrentStreak(results) {
-  if (results.length === 0) return 0;
+  if (results.length === 0) return { streak: 0, result: null };
   let streak = 1;
   const lastResult = results[results.length - 1];
   
@@ -408,7 +410,7 @@ function calculateCurrentStreak(results) {
     else break;
   }
   
-  return streak;
+  return { streak, result: lastResult };
 }
 
 function calculateStreakEndProbability(currentStreak, avgStreak, maxStreak) {
@@ -465,7 +467,7 @@ function predictTaiXiu(history) {
     return {
       success: false,
       error: error.message,
-      fallbackPrediction: Math.random() < 0.5 ? 'Tài' : 'Xỉu',
+      fallbackPrediction: Math.random() < 0.5 ? 'T' : 'X',
       confidence: 0.5,
       timestamp: new Date().toISOString()
     };
