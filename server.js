@@ -128,7 +128,7 @@ function connectWebSocket() {
                 const predictionResult = analyzeAndPredict(historyString);
 
                 let finalDuDoan = "?";
-                let finalGiaiThich = "Đang chờ đủ 13 phiên để phân tích...";
+                let finalGiaiThich = "Đang chờ đủ 5 phiên để phân tích..."; // <--- SỬA Ở ĐÂY
 
                 if (predictionResult) {
                     finalDuDoan = predictionResult.prediction === 'T' ? 'Tài' : 'Xỉu';
