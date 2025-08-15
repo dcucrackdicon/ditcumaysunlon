@@ -1,5 +1,3 @@
-// server.js
-
 const WebSocket = require('ws');
 const express = require('express');
 const cors = require('cors');
@@ -28,7 +26,6 @@ let apiResponseData = {
 };
 
 let currentSessionId = null;
-const patternHistory = [];
 const fullGameHistory = [];
 
 const WEBSOCKET_URL = "wss://websocket.azhkthg1.net/websocket?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhbW91bnQiOjAsInVzZXJuYW1lIjoiU0NfYXBpc3Vud2luMTIzIn0.hgrRbSV6vnBwJMg9ZFtbx3rRu9mX_hZMZ_m5gMNhkw0";
@@ -38,17 +35,14 @@ const WS_HEADERS = {
 };
 const RECONNECT_DELAY = 3000;
 const PING_INTERVAL = 15000;
-const MAX_PATTERN_HISTORY = 1000;
+const MAX_HISTORY = 1000; // Đổi tên biến để rõ ràng hơn
 
 const initialMessages = [
-    [1, "MiniGame", "GM_freeallala", "00000000", { "info": "{\"ipAddress\":\"2001:ee0:1a67:a4ff:c44b:cb:f74c:232e\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiJuY2Juc25zYiIsImJvdCI6MCwiaXNNZXJjaGFudCI6ZmFsc2UsInZlcmlmaWVkQmFua0FjY291bnQiOmZhbHNlLCJwbGF5RXZlbnRMb2JieSI6ZmFsc2UsImN1c3RvbWVySWQiOjMxMjQ0MDc1MSwiYWZmSWQiOiJkZWZhdWx0IiwiYmFubmVkIjpmYWxzZSwiYnJhbmQiOiJnZW0iLCJ0aW1lc3RhbXAiOjE3NTUxMjM3MzM5MTYsImxvY2tHYW1lcyI6W10sImFtb3VudCI6MCwibG9ja0NoYXQiOmZhbHNlLCJwaG9uZVZlcmlmaWVkIjpmYWxzZSwiaXBBZGRyZXNzIjoiMjAwMTplZTA6MWE2NzphNGZmOmM0NGI6Y2I6Zjc0YzoyMzJlIiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8yMC5wbmciLCJwbGF0Zm9ybUlkIjo1LCJ1c2VySWQiOiJkYTIwNDliMy0wZmI3LTRkMGUtYjcwZS1hNzFkOThlOTVhOWEiLCJyZWdUaW1lIjoxNzU1MTIzNjI3ODQ0LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2ZyZWVhbGxhbGEifQ.1_TOsgvoOC0a9npbrSmg3C5rRP3sLdJUFIyB0vael3E\",\"locale\":\"vi\",\"userId\":\"da2049b3-0fb7-4d0e-b70e-a71d98e95a9a\",\"username\":\"GM_freeallala\",\"timestamp\":1755123733916,\"refreshToken\":\"db2b9da2c3264625b601a3d76d83b69f.6054e3c11d244bc48b4b8d7b0459f98d\"}", "signature": "279EFBD41388A221A4D3C44DFE320DA68FF51D935E69E28C339D81BC9E023D1D6F88336DB8025A3106EC5BCE0BF9D20B41DBACBAF844CB160326A62D90FBC8DFE55BB003BBE951773909E0F29426052AC2B3E1333C932CC70D0028878FD037EBFF0FA371216F23C08E2F126B1A882DBC6B1078ED44B40519CF7E8F5C772DF8DF" }],
+    [1, "MiniGame", "GM_freeallala", "00000000", { "info": "{\"ipAddress\":\"2001:ee0:1a67:a4ff:c44b:cb:f74c:232e\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiJuY2Juc25zYiIsImJvdCI6MCwiaXNNZXJjaGFudCI6ZmFsc2UsInZlcmlmaWVkQmFua0FjY291bnQiOmZhbHNlLCJwbGF5RXZlbnRMb2JieSI6ZmFsc2UsImN1c3RvbWVySWQiOjMxMjQ0MDc1MSwiYWZmSWQiOiJkZWZhdWx0IiwiYmFubmVkIjpmYWxzZSwiYnJhbmQiOiJnZW0iLCJ0aW1lc3RhbXAiOjE3NTUxMjM3MzM5MTYsImxvY2tHYW1lcyI6W10sImFtb3VudCI6MCwibG9ja0NoYXQiOmZhbHNlLCJwaG9uZVZlcmlmaWVkIjpmYWxzZSwiaXBBZGRyZXNzIjoiMjAwMTplZTA6MWE2NzphNGZmOmM0NGI6Y2I6Zjc0YzoyMzJlIiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8yMC5wbmciLCJwbGF0Zm9ybUlkIjo1LCJ1c2VySWQiOiJkYTIwNDliMy0wZmI3LTRkMGUtYjcwZS1hNzFkOThlOTVhOWEiLCJyZWdUaW1lIjoxNzU1MTIzNjI3ODQ0LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2ZyZWVhbGxhbGEifQ.1_TOsgvoOC0a9npbrSmg3C5rRP3sLdJUFIyB0vael3E\",\"locale\":\"vi\",\"userId\":\"da2049b3-0fb7-4d0e-b70e-a71d98e95a9a\",\"username\":\"GM_freeallala\",\"timestamp\":175512MDUxMywibG9ja0NoYXQiOmZhbHNlLCJwaG9uZVZlcmlmaWVkIjpmYWxzZSwiaXBBZGRyZXNzIjoiMjAwMTplZTA6MWE2NzphNGZmOmM0NGI6Y2I6Zjc0YzoyMzJlIiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8yMC5wbmciLCJwbGF0Zm9ybUlkIjo1LCJ1c2VySWQiOiJkYTIwNDliMy0wZmI3LTRkMGUtYjcwZS1hNzFkOThlOTVhOWEiLCJyZWdUaW1lIjoxNzU1MTIzNjI3ODQ0LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2ZyZWVhbGxhbGEifQ.1_TOsgvoOC0a9npbrSmg3C5rRP3sLdJUFIyB0vael3E\",\"locale\":\"vi\",\"userId\":\"da2049b3-0fb7-4d0e-b70e-a71d98e95a9a\",\"username\":\"GM_freeallala\",\"timestamp\":1755123733916,\"refreshToken\":\"db2b9da2c3264625b601a3d76d83b69f.6054e3c11d244bc48b4b8d7b0459f98d\"}", "signature": "279EFBD41388A221A4D3C44DFE320DA68FF51D935E69E28C339D81BC9E023D1D6F88336DB8025A3106EC5BCE0BF9D20B41DBACBAF844CB160326A62D90FBC8DFE55BB003BBE951773909E0F29426052AC2B3E1333C932CC70D0028878FD037EBFF0FA371216F23C08E2F126B1A882DBC6B1078ED44B40519CF7E8F5C772DF8DF" }],
     [6, "MiniGame", "taixiuPlugin", { cmd: 1005 }],
     [6, "MiniGame", "lobbyPlugin", { cmd: 10001 }]
 ];
 
-// ===================================
-// === WebSocket Client ===
-// ===================================
 let ws = null;
 let pingInterval = null;
 
@@ -74,18 +68,9 @@ function connectWebSocket() {
         clearInterval(pingInterval);
         pingInterval = setInterval(() => {
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.ping((err) => {
-                    if (err) {
-                        console.error('[❌] Ping thất bại, có thể kết nối đã mất:', err);
-                        ws.terminate();
-                    }
-                });
+                ws.ping();
             }
         }, PING_INTERVAL);
-    });
-
-    ws.on('pong', () => {
-        // console.log('[📶] Ping OK.');
     });
 
     ws.on('message', (message) => {
@@ -104,29 +89,31 @@ function connectWebSocket() {
             if (cmd === 1003 && gBB && d1 !== undefined && d2 !== undefined && d3 !== undefined) {
                 const total = d1 + d2 + d3;
                 const resultText = (total > 10) ? 'Tài' : 'Xỉu';
-                const result = (total > 10) ? "T" : "X";
-
-                patternHistory.push(result);
-                if (patternHistory.length > MAX_PATTERN_HISTORY) {
-                    patternHistory.shift();
-                }
 
                 const historyEntry = {
                     session: currentSessionId || 'N/A',
                     dice: [d1, d2, d3],
-                    total: total,
+                    Tong: total, // Thuật toán của bạn dùng key là 'Tong' (viết hoa)
                     result: resultText
                 };
                 fullGameHistory.unshift(historyEntry);
-                if (fullGameHistory.length > MAX_PATTERN_HISTORY) {
+                if (fullGameHistory.length > MAX_HISTORY) {
                     fullGameHistory.pop();
                 }
                 
-                const originalPrediction = analyzeAndPredict(fullGameHistory);
+                // Gọi thuật toán và nhận kết quả
+                const predictionResult = analyzeAndPredict(fullGameHistory);
 
-                let invertedDuDoan = "?";
-                if (originalPrediction.du_doan !== "?") {
-                    invertedDuDoan = originalPrediction.du_doan === 'Tài' ? 'Xỉu' : 'Tài';
+                let finalDuDoan = "?";
+                let finalTyLe = "0%";
+                let finalGiaiThich = "Đang chờ đủ 50 phiên để phân tích...";
+
+                if (predictionResult) {
+                    // Nếu thuật toán có kết quả, xử lý nó
+                    const originalPrediction = predictionResult.taiXiu;
+                    finalDuDoan = originalPrediction === 'Tài' ? 'Xỉu' : 'Tài'; // Đảo ngược dự đoán
+                    finalTyLe = `${predictionResult.confidence.taiXiu}%`;
+                    finalGiaiThich = predictionResult.analysisReport.recommendations.join(' ');
                 }
 
                 apiResponseData = {
@@ -137,13 +124,13 @@ function connectWebSocket() {
                     xuc_xac_3: d3,
                     tong: total,
                     ket_qua: resultText,
-                    du_doan: invertedDuDoan,
-                    ty_le_thanh_cong: originalPrediction.ty_le_thanh_cong,
-                    giai_thich: originalPrediction.giai_thich,
-                    pattern: patternHistory.join('')
+                    du_doan: finalDuDoan,
+                    ty_le_thanh_cong: finalTyLe,
+                    giai_thich: finalGiaiThich,
+                    pattern: fullGameHistory.map(h => h.result === 'Tài' ? 'T' : 'X').join('')
                 };
                 
-                console.log(`[GAME] Phiên ${apiResponseData.phien}: ${apiResponseData.tong} (${apiResponseData.ket_qua}) | Dự đoán: ${apiResponseData.du_doan}`);
+                console.log(`[GAME] Phiên ${apiResponseData.phien}: ${apiResponseData.tong} (${apiResponseData.ket_qua}) | Dự đoán: ${apiResponseData.du_doan} (${apiResponseData.ty_le_thanh_cong})`);
                 
                 currentSessionId = null;
             }
@@ -164,9 +151,7 @@ function connectWebSocket() {
     });
 }
 
-// ===================================
-// === API Endpoint ===
-// ===================================
+// === API Endpoints ===
 app.get('/sunlon', (req, res) => {
     res.json(apiResponseData);
 });
@@ -187,9 +172,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// ===================================
 // === Khởi động Server ===
-// ===================================
 app.listen(PORT, () => {
     console.log(`[🌐] Server đang chạy tại http://localhost:${PORT}`);
     connectWebSocket();
