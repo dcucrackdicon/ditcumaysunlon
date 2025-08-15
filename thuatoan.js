@@ -1,3 +1,5 @@
+// thuatoan.js
+
 const predictionModel = {
   models: {},
   performanceStats: {},
@@ -16,33 +18,35 @@ const predictionModel = {
 };
 
 function analyzeGameTrends(history) {
-  // SỬA: Thay thế 'this.config' bằng 'predictionModel.config'
-  if (!history || history.length < predictionModel.config.minHistoryLength) {
+  if (!history || history.length < this.config.minHistoryLength) {
     return { prediction: null, confidence: 0, analysis: 'Insufficient data' };
   }
 
+  // Phân tích nâng cao
   const enhancedAnalysis = {
-    scorePatterns: detectScorePatterns(history),
-    resultSequences: analyzeResultSequences(history),
-    volatility: calculateMarketVolatility(history),
-    statisticalTrends: calculateStatisticalTrends(history),
-    streakAnalysis: performStreakAnalysis(history)
+    scorePatterns: detectScorePatterns.call(this, history),
+    resultSequences: analyzeResultSequences.call(this, history),
+    volatility: calculateMarketVolatility.call(this, history),
+    statisticalTrends: calculateStatisticalTrends.call(this, history),
+    streakAnalysis: performStreakAnalysis.call(this, history)
   };
 
+  // Tính điểm dự đoán từ các mô hình
   const predictions = {
-    patternRecognition: patternRecognitionModel(enhancedAnalysis.resultSequences),
-    statisticalPrediction: statisticalPredictionModel(enhancedAnalysis.statisticalTrends),
-    volatilityAdjustment: volatilityAdjustmentModel(enhancedAnalysis.volatility),
-    streakPrediction: streakPredictionModel(enhancedAnalysis.streakAnalysis),
-    scoreBasedPrediction: scoreBasedPredictionModel(enhancedAnalysis.scorePatterns)
+    patternRecognition: patternRecognitionModel.call(this, enhancedAnalysis.resultSequences),
+    statisticalPrediction: statisticalPredictionModel.call(this, enhancedAnalysis.statisticalTrends),
+    volatilityAdjustment: volatilityAdjustmentModel.call(this, enhancedAnalysis.volatility),
+    streakPrediction: streakPredictionModel.call(this, enhancedAnalysis.streakAnalysis),
+    scoreBasedPrediction: scoreBasedPredictionModel.call(this, enhancedAnalysis.scorePatterns)
   };
 
-  // SỬA: Thay thế 'this.config' bằng 'predictionModel.config'
-  const dynamicWeights = predictionModel.config.dynamicWeightAdjustment 
-    ? calculateDynamicWeights(predictions, history) 
-    : predictionModel.config;
+  // Tính toán trọng số động
+  const dynamicWeights = this.config.dynamicWeightAdjustment 
+    ? calculateDynamicWeights.call(this, predictions, history) 
+    : this.config;
 
-  const finalPrediction = calculateFinalPrediction(predictions, dynamicWeights);
+  // Tổng hợp kết quả
+  const finalPrediction = calculateFinalPrediction.call(this, predictions, dynamicWeights);
 
   return {
     prediction: finalPrediction.prediction,
@@ -56,8 +60,7 @@ function analyzeGameTrends(history) {
   };
 }
 
-// Sửa 'this.config' trong tất cả các hàm bên dưới
-
+// Các hàm phân tích nâng cao
 function detectScorePatterns(history) {
   const scores = history.map(r => r.score);
   const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
@@ -68,7 +71,7 @@ function detectScorePatterns(history) {
     nearThreshold: scores.filter(s => s >= 9.5 && s <= 11.5).length / scores.length
   };
 
-  const last10Scores = scores.slice(0, 10);
+  const last10Scores = scores.slice(-10);
   const scoreTrend = {
     increasing: last10Scores.filter((s, i) => i > 0 && s > last10Scores[i-1]).length,
     decreasing: last10Scores.filter((s, i) => i > 0 && s < last10Scores[i-1]).length,
@@ -85,9 +88,9 @@ function detectScorePatterns(history) {
 }
 
 function analyzeResultSequences(history) {
-  const results = history.map(r => r.result === 'Tài' ? 'T' : 'X');
+  const results = history.map(r => r.result);
   const patterns = [];
-  const depth = Math.min(predictionModel.config.patternRecognitionDepth, results.length - 1);
+  const depth = Math.min(this.config.patternRecognitionDepth, results.length - 1);
 
   for (let i = 0; i <= results.length - depth; i++) {
     const pattern = results.slice(i, i + depth).join('-');
@@ -110,7 +113,7 @@ function analyzeResultSequences(history) {
     mostCommonPattern: mostCommonPattern,
     switchRate: switches / (results.length - 1),
     currentStreak: calculateCurrentStreak(results),
-    taiXiuRatio: results.filter(r => r === 'T').length / results.length
+    taiXiuRatio: results.filter(r => r === 'Tài').length / results.length
   };
 }
 
@@ -119,22 +122,22 @@ function calculateMarketVolatility(history) {
   const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
   const stdDev = calculateStandardDeviation(scores);
   
-  const recentScores = scores.slice(0, 10);
+  const recentScores = scores.slice(-10);
   const recentAvg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
   const recentStdDev = calculateStandardDeviation(recentScores);
   
   return {
     overallVolatility: stdDev / avgScore,
     recentVolatility: recentStdDev / recentAvg,
-    volatilityChange: (recentStdDev - stdDev) / (stdDev || 1),
+    volatilityChange: (recentStdDev - stdDev) / stdDev,
     isHighlyVolatile: recentStdDev > 3.5
   };
 }
 
 function calculateStatisticalTrends(history) {
-    const results = history.map(r => r.result === 'Tài' ? 'T' : 'X');
-    const taiCount = results.filter(r => r === 'T').length;
-    const xiuCount = results.length - taiCount;
+  const results = history.map(r => r.result);
+  const taiCount = results.filter(r => r === 'Tài' || r === 'T').length;
+  const xiuCount = results.length - taiCount;
   
   const cycles = detectCycles(results);
   
@@ -148,13 +151,11 @@ function calculateStatisticalTrends(history) {
 }
 
 function performStreakAnalysis(history) {
-    const results = history.map(r => r.result === 'Tài' ? 'T' : 'X');
-    if (results.length === 0) return { currentStreak: 0, currentResult: null, averageStreak: 0, maxStreak: 0, streakEndProbability: 0.5, isLongStreak: false };
-
+  const results = history.map(r => r.result);
   let currentStreak = 1;
-  const currentResult = results[0];
+  const currentResult = results[results.length - 1];
   
-  for (let i = 1; i < results.length; i++) {
+  for (let i = results.length - 2; i >= 0; i--) {
     if (results[i] === currentResult) currentStreak++;
     else break;
   }
@@ -185,13 +186,14 @@ function performStreakAnalysis(history) {
   };
 }
 
+// Các mô hình dự đoán
 function patternRecognitionModel(sequenceAnalysis) {
   if (!sequenceAnalysis.mostCommonPattern) {
     return { prediction: null, confidence: 0, reason: 'No significant patterns detected' };
   }
   
   const patternParts = sequenceAnalysis.mostCommonPattern[0].split('-');
-  const lastResultInHistory = sequenceAnalysis.currentStreak.currentResult;
+  const lastResult = sequenceAnalysis.currentStreak.currentResult;
   const expectedNext = patternParts[patternParts.length - 1];
   
   if (sequenceAnalysis.mostCommonPattern[1] >= 2) {
@@ -199,22 +201,22 @@ function patternRecognitionModel(sequenceAnalysis) {
     return {
       prediction: expectedNext,
       confidence: confidence,
-      reason: `Pattern lặp (${sequenceAnalysis.mostCommonPattern[0]} x${sequenceAnalysis.mostCommonPattern[1]})`
+      reason: `Detected repeating pattern (${sequenceAnalysis.mostCommonPattern[0]} occurred ${sequenceAnalysis.mostCommonPattern[1]} times)`
     };
   }
   
   if (sequenceAnalysis.switchRate > 0.7) {
     return {
-      prediction: lastResultInHistory === 'T' ? 'X' : 'T',
+      prediction: lastResult === 'T' ? 'X' : 'T',
       confidence: 0.65,
-      reason: `Tỷ lệ bẻ cầu cao (${(sequenceAnalysis.switchRate * 100).toFixed(1)}%)`
+      reason: `High switch rate detected (${(sequenceAnalysis.switchRate * 100).toFixed(1)}%)`
     };
   }
   
   return {
     prediction: null,
     confidence: 0,
-    reason: 'Không có pattern rõ ràng'
+    reason: 'No clear pattern-based prediction'
   };
 }
 
@@ -225,7 +227,7 @@ function statisticalPredictionModel(statisticalTrends) {
     return {
       prediction: expectedNext,
       confidence: 0.7,
-      reason: 'Phát hiện chu kỳ lặp'
+      reason: 'Detected cyclical pattern in results'
     };
   }
   
@@ -234,14 +236,14 @@ function statisticalPredictionModel(statisticalTrends) {
     return {
       prediction: predicted,
       confidence: Math.min(0.8, Math.abs(imbalance) * 1.5),
-      reason: `Mất cân bằng (${(imbalance * 100).toFixed(1)}% thiên về ${imbalance > 0 ? 'Tài' : 'Xỉu'})`
+      reason: `Significant imbalance detected (${(imbalance * 100).toFixed(1)}% ${imbalance > 0 ? 'Tài' : 'Xỉu'} bias)`
     };
   }
   
   return {
     prediction: taiProbability > xiuProbability ? 'T' : 'X',
     confidence: Math.abs(taiProbability - xiuProbability) * 0.8,
-    reason: `Xác suất (Tài: ${(taiProbability * 100).toFixed(1)}%, Xỉu: ${(xiuProbability * 100).toFixed(1)}%)`
+    reason: `Basic probability (Tài: ${(taiProbability * 100).toFixed(1)}%, Xỉu: ${(xiuProbability * 100).toFixed(1)}%)`
   };
 }
 
@@ -251,7 +253,7 @@ function volatilityAdjustmentModel(volatilityAnalysis) {
       prediction: null,
       confidence: 0,
       adjustment: -0.2,
-      reason: 'Thị trường biến động cao'
+      reason: 'High volatility market - reducing confidence'
     };
   }
   
@@ -260,7 +262,7 @@ function volatilityAdjustmentModel(volatilityAnalysis) {
       prediction: null,
       confidence: 0,
       adjustment: -0.15,
-      reason: 'Biến động đang tăng'
+      reason: 'Increasing volatility - proceeding with caution'
     };
   }
   
@@ -268,25 +270,25 @@ function volatilityAdjustmentModel(volatilityAnalysis) {
     prediction: null,
     confidence: 0,
     adjustment: 0.1,
-    reason: 'Thị trường ổn định'
+    reason: 'Stable market conditions - increasing confidence'
   };
 }
 
 function streakPredictionModel(streakAnalysis) {
   const { currentStreak, currentResult, streakEndProbability, isLongStreak } = streakAnalysis;
   
-  if (isLongStreak && streakEndProbability > predictionModel.config.streakBreakThreshold) {
+  if (isLongStreak && streakEndProbability > this.config.streakBreakThreshold) {
     return {
       prediction: currentResult === 'T' ? 'X' : 'T',
       confidence: streakEndProbability * 0.9,
-      reason: `Cầu dài (${currentStreak} ${currentResult}), xác suất gãy cao (${(streakEndProbability * 100).toFixed(1)}%)`
+      reason: `Long streak detected (${currentStreak} ${currentResult}), high break probability (${(streakEndProbability * 100).toFixed(1)}%)`
     };
   }
   
   return {
     prediction: currentResult,
     confidence: (1 - streakEndProbability) * 0.7,
-    reason: `Theo cầu (${currentStreak} ${currentResult}), xác suất gãy thấp (${(streakEndProbability * 100).toFixed(1)}%)`
+    reason: `Continuing current streak (${currentStreak} ${currentResult}), low break probability (${(streakEndProbability * 100).toFixed(1)}%)`
   };
 }
 
@@ -297,7 +299,7 @@ function scoreBasedPredictionModel(scoreAnalysis) {
     return {
       prediction: 'T',
       confidence: 0.75,
-      reason: `Điểm trung bình cao (${average.toFixed(1)}) & thiên Tài (${(distribution.taiRange * 100).toFixed(1)}%)`
+      reason: `High average score (${average.toFixed(1)}) with strong Tài tendency (${(distribution.taiRange * 100).toFixed(1)}%)`
     };
   }
   
@@ -305,7 +307,7 @@ function scoreBasedPredictionModel(scoreAnalysis) {
     return {
       prediction: 'X',
       confidence: 0.75,
-      reason: `Điểm trung bình thấp (${average.toFixed(1)}) & thiên Xỉu (${(distribution.xiuRange * 100).toFixed(1)}%)`
+      reason: `Low average score (${average.toFixed(1)}) with strong Xỉu tendency (${(distribution.xiuRange * 100).toFixed(1)}%)`
     };
   }
   
@@ -313,7 +315,7 @@ function scoreBasedPredictionModel(scoreAnalysis) {
     return {
       prediction: 'T',
       confidence: 0.65,
-      reason: 'Xu hướng điểm tăng mạnh'
+      reason: 'Strong upward score trend'
     };
   }
   
@@ -321,32 +323,25 @@ function scoreBasedPredictionModel(scoreAnalysis) {
     return {
       prediction: 'X',
       confidence: 0.65,
-      reason: 'Xu hướng điểm giảm mạnh'
+      reason: 'Strong downward score trend'
     };
   }
   
   return {
     prediction: average > 10.5 ? 'T' : 'X',
     confidence: 0.6,
-    reason: `Dựa vào điểm trung bình (${average.toFixed(1)})`
+    reason: `Basic score-based prediction (average: ${average.toFixed(1)})`
   };
 }
 
+// Các hàm hỗ trợ
 function calculateDynamicWeights(predictions, history) {
-  const performanceRatios = {
-    pattern: evaluateModelPerformance('pattern', history),
-    statistical: evaluateModelPerformance('statistical', history),
-    streak: evaluateModelPerformance('streak', history),
-    score: evaluateModelPerformance('score', history)
-  };
-  
-  const totalPerformance = Object.values(performanceRatios).reduce((a, b) => a + b, 0) || 1;
-  
+  // Logic này có thể được mở rộng để đánh giá hiệu suất thực tế
   return {
-    patternAnalysisWeight: (performanceRatios.pattern / totalPerformance) * 0.4,
-    statisticalAnalysisWeight: (performanceRatios.statistical / totalPerformance) * 0.3,
-    trendAnalysisWeight: (performanceRatios.streak / totalPerformance) * 0.2,
-    scoreAnalysisWeight: (performanceRatios.score / totalPerformance) * 0.1,
+    patternAnalysisWeight: 0.25,
+    statisticalAnalysisWeight: 0.2,
+    trendAnalysisWeight: 0.3,
+    scoreAnalysisWeight: 0.15,
     volatilityAnalysisWeight: 0.1
   };
 }
@@ -354,61 +349,61 @@ function calculateDynamicWeights(predictions, history) {
 function calculateFinalPrediction(predictions, weights) {
   let taiScore = 0;
   let xiuScore = 0;
-  const contributingReasons = [];
+  let totalConfidence = 0;
+  const reasons = [];
   
   const models = [
-      { p: predictions.patternRecognition, w: weights.patternAnalysisWeight },
-      { p: predictions.statisticalPrediction, w: weights.statisticalAnalysisWeight },
-      { p: predictions.streakPrediction, w: weights.trendAnalysisWeight },
-      { p: predictions.scoreBasedPrediction, w: weights.scoreAnalysisWeight }
+    { pred: predictions.patternRecognition, weight: weights.patternAnalysisWeight },
+    { pred: predictions.statisticalPrediction, weight: weights.statisticalAnalysisWeight },
+    { pred: predictions.streakPrediction, weight: weights.trendAnalysisWeight },
+    { pred: predictions.scoreBasedPrediction, weight: weights.scoreAnalysisWeight }
   ];
 
-  for (const model of models) {
-      if (model.p && model.p.prediction) {
-          const score = model.w * model.p.confidence;
-          if (model.p.prediction === 'T') {
-              taiScore += score;
-          } else {
-              xiuScore += score;
-          }
-          contributingReasons.push({ reason: model.p.reason, score });
+  models.forEach(({ pred, weight }) => {
+    if (pred.prediction) {
+      if (pred.prediction === 'T') {
+        taiScore += weight * pred.confidence;
+      } else {
+        xiuScore += weight * pred.confidence;
       }
-  }
-  
-  const volatilityAdjustment = predictions.volatilityAdjustment.adjustment;
-  const totalWeightedConfidence = (taiScore + xiuScore) * (1 + volatilityAdjustment);
-  
-  if (totalWeightedConfidence <= 0) {
-      return { prediction: 'T', confidence: 0.5, mainReason: 'Không đủ tín hiệu mạnh' };
+      totalConfidence += weight * pred.confidence;
+      reasons.push(pred.reason);
+    }
+  });
+
+  if (taiScore === 0 && xiuScore === 0) {
+      return { prediction: Math.random() < 0.5 ? 'T' : 'X', confidence: 0.5, mainReason: 'No conclusive data, making a random guess.' };
   }
 
+  const volatilityAdjustment = predictions.volatilityAdjustment.adjustment;
+  totalConfidence = Math.max(0.1, Math.min(0.95, totalConfidence + volatilityAdjustment));
+  
   const finalPrediction = taiScore > xiuScore ? 'T' : 'X';
   const confidenceRatio = Math.abs(taiScore - xiuScore) / (taiScore + xiuScore);
-  const finalConfidence = Math.max(0.1, Math.min(0.95, totalWeightedConfidence * (0.5 + confidenceRatio * 0.5)));
-
-  const mainReason = contributingReasons.sort((a,b) => b.score - a.score)[0]?.reason || 'Tổng hợp nhiều mô hình';
+  const finalConfidence = totalConfidence * (0.5 + confidenceRatio * 0.5);
   
   return {
     prediction: finalPrediction,
     confidence: finalConfidence,
-    mainReason: mainReason,
+    mainReason: reasons.length > 0 ? reasons.join('; ') : 'Combined model prediction',
   };
 }
 
+// Hàm tiện ích
 function calculateStandardDeviation(values) {
     if (values.length < 2) return 0;
-  const avg = values.reduce((a, b) => a + b, 0) / values.length;
-  const squareDiffs = values.map(v => Math.pow(v - avg, 2));
-  const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;
-  return Math.sqrt(avgSquareDiff);
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    const squareDiffs = values.map(v => Math.pow(v - avg, 2));
+    const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;
+    return Math.sqrt(avgSquareDiff);
 }
 
 function calculateCurrentStreak(results) {
   if (results.length === 0) return 0;
   let streak = 1;
-  const lastResult = results[0];
+  const lastResult = results[results.length - 1];
   
-  for (let i = 1; i < results.length; i++) {
+  for (let i = results.length - 2; i >= 0; i--) {
     if (results[i] === lastResult) streak++;
     else break;
   }
@@ -421,7 +416,8 @@ function calculateStreakEndProbability(currentStreak, avgStreak, maxStreak) {
   if (currentStreak >= maxStreak) return 0.9;
   
   const excess = currentStreak - avgStreak;
-  const range = (maxStreak - avgStreak) || 1;
+  const range = maxStreak - avgStreak;
+  if (range === 0) return 0.6;
   return 0.3 + (0.6 * (excess / range));
 }
 
@@ -432,47 +428,31 @@ function detectCycles(results) {
   for (let cycleLen = 2; cycleLen <= maxCycleLength; cycleLen++) {
     if (results.length < cycleLen * 2) continue;
     
-    const lastCycle = results.slice(0, cycleLen);
-    const prevCycle = results.slice(cycleLen, cycleLen * 2);
+    const lastCycle = results.slice(-cycleLen);
+    const prevCycle = results.slice(-cycleLen * 2, -cycleLen);
     
     if (JSON.stringify(lastCycle) === JSON.stringify(prevCycle)) {
       cycles.push({
         length: cycleLen,
-        pattern: lastCycle,
-        occurrences: 2
+        pattern: lastCycle
       });
     }
   }
-  
   return cycles;
 }
 
 function predictFromCycles(cycles) {
+  if (cycles.length === 0) return null;
   const longestCycle = cycles.sort((a, b) => b.length - a.length)[0];
-  return longestCycle.pattern[0];
+  return longestCycle.pattern[0]; 
 }
 
-function evaluateModelPerformance(modelName, history) {
-  return 1.0; 
-}
-
+// API chính
 function predictTaiXiu(history) {
   try {
-    const limitedHistory = history.slice(0, predictionModel.config.maxHistoryLength);
+    const limitedHistory = history.slice(-this.config.maxHistoryLength);
+    const analysisResult = this.analyzeGameTrends(limitedHistory);
     
-    // SỬA: Phải gọi hàm analyzeGameTrends đã được định nghĩa ở trên
-    const analysisResult = analyzeGameTrends(limitedHistory);
-    
-    if (!analysisResult.prediction) {
-      return {
-          success: false,
-          error: analysisResult.analysis,
-          fallbackPrediction: Math.random() < 0.5 ? 'T' : 'X',
-          confidence: 0.5,
-          timestamp: new Date().toISOString()
-      };
-    }
-
     return {
       success: true,
       prediction: analysisResult.prediction,
@@ -485,13 +465,16 @@ function predictTaiXiu(history) {
     return {
       success: false,
       error: error.message,
-      fallbackPrediction: Math.random() < 0.5 ? 'T' : 'X',
+      fallbackPrediction: Math.random() < 0.5 ? 'Tài' : 'Xỉu',
       confidence: 0.5,
       timestamp: new Date().toISOString()
     };
   }
 }
 
+// Sửa lỗi context 'this' khi export module
 module.exports = {
-  predictTaiXiu
+  predictTaiXiu: predictTaiXiu.bind(predictionModel),
+  config: predictionModel.config,
+  analyzeGameTrends: analyzeGameTrends.bind(predictionModel)
 };
