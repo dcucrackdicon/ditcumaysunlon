@@ -8196,17 +8196,30 @@ XXXXXXXXXXXXX => Dự đoán: X - Loại cầu: Cầu bệt (liên tiếp giốn
 
 const predictionMap = new Map();
 
-// Hàm xử lý dữ liệu thô và nạp vào Map
+// Hàm xử lý dữ liệu thô và nạp vào Map (ĐÃ SỬA LỖI)
 function parseAndLoadData() {
     const lines = predictionData.trim().split('\n');
     for (const line of lines) {
+        // Bỏ qua các dòng trống hoặc dòng chú thích
+        if (!line || line.startsWith('//')) {
+            continue;
+        }
+
         const parts = line.split('=>');
-        if (parts.length < 2) continue;
+        if (parts.length < 2) {
+            // Bỏ qua những dòng không có dấu '=>'
+            continue; 
+        }
 
-        // Lấy chuỗi pattern (ví dụ: 'TTTTTTTTTTTT')
-        const pattern = parts[0].split(']')[1].trim();
+        // FIX: Thêm đoạn kiểm tra này để đảm bảo dòng có chứa 
+        const patternParts = parts[0].split(']');
+        if (patternParts.length < 2) {
+            // Nếu dòng không có ']', nó không hợp lệ, bỏ qua
+            continue;
+        }
+        // Kết thúc FIX
 
-        // Lấy phần dự đoán (ví dụ: 'Dự đoán: T - Loại cầu: Cầu bệt (liên tiếp giống nhau)')
+        const pattern = patternParts[1].trim();
         const predictionPart = parts[1].trim();
         
         const predictionMatch = predictionPart.match(/Dự đoán: (T|X)/);
@@ -8215,7 +8228,7 @@ function parseAndLoadData() {
         if (pattern && predictionMatch && typeMatch) {
             predictionMap.set(pattern, {
                 prediction: predictionMatch[1], // 'T' hoặc 'X'
-                patternType: typeMatch[1] // 'Cầu bệt (liên tiếp giống nhau)'
+                patternType: typeMatch[1].replace(/\s\s+/g, ' ').trim() // 'Cầu bệt...' và xóa khoảng trắng thừa
             });
         }
     }
@@ -8227,7 +8240,7 @@ parseAndLoadData();
 
 /**
  * Phân tích và dự đoán dựa trên chuỗi lịch sử.
- * @param {string} historyString - Một chuỗi 13 ký tự 'T' hoặc 'X' đại diện cho lịch sử.
+ * @param {string} historyString - Một chuỗi ký tự 'T' hoặc 'X' đại diện cho lịch sử.
  * @returns {object|null} - Trả về object chứa dự đoán và loại cầu, hoặc null nếu không tìm thấy.
  */
 function analyzeAndPredict(historyString) {
