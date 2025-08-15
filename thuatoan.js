@@ -3,7 +3,8 @@ function predictTaiXiuTongProMax(history) {
    * KIỂM TRA DỮ LIỆU ĐẦU VÀO
    */
   if (!history || history.length < 50) {
-    throw new Error('Hệ thống yêu cầu tối thiểu 50 kết quả lịch sử để phân tích chuyên sâu');
+    // Thay vì throw Error, trả về một trạng thái chờ để server xử lý
+    return null;
   }
 
   /*
@@ -20,22 +21,11 @@ function predictTaiXiuTongProMax(history) {
    * HỆ THỐNG PHÂN TÍCH ĐA TẦNG
    */
   const analysisLayers = {
-    // 1. Phân tích thống kê cơ bản với trọng số thời gian
     basicStats: getWeightedStats(analysisPeriods),
-    
-    // 2. Phân tích chuỗi liên tiếp (streak analysis)
     streak: getStreakAnalysis(analysisPeriods.ultraShort),
-    
-    // 3. Phân tích mẫu hình (pattern recognition)
     patterns: getPatternAnalysis(analysisPeriods.medium),
-    
-    // 4. Phân tích chu kỳ (cycle detection)
     cycles: detectCycles(analysisPeriods.long),
-    
-    // 5. Phân tích bất thường (anomaly detection)
     anomalies: detectAnomalies(history),
-    
-    // 6. Phân tích xu hướng (trend analysis)
     trends: getTrendAnalysis(analysisPeriods)
   };
 
@@ -55,7 +45,6 @@ function predictTaiXiuTongProMax(history) {
    * CÁC HÀM HỖ TRỢ CHUYÊN SÂU
    */
 
-  // Hàm tính toán thống kê với trọng số thời gian
   function getWeightedStats(periods) {
     const stats = {};
     const weightProfile = {
@@ -65,7 +54,6 @@ function predictTaiXiuTongProMax(history) {
       long: 0.1
     };
 
-    // Tính toán cho từng period
     for (const [periodName, data] of Object.entries(periods)) {
       const weight = weightProfile[periodName];
       const periodStats = {
@@ -85,7 +73,6 @@ function predictTaiXiuTongProMax(history) {
         periodStats.tongDistribution[Tong] = (periodStats.tongDistribution[Tong] || 0) + itemWeight;
       });
 
-      // Merge vào tổng
       for (const key of ['tai', 'xiu']) {
         stats[key] = (stats[key] || 0) + periodStats[key];
       }
@@ -99,7 +86,6 @@ function predictTaiXiuTongProMax(history) {
     return stats;
   }
 
-  // Hàm phân tích chuỗi liên tiếp
   function getStreakAnalysis(data) {
     const analysis = {
       current: { tai: 0, xiu: 0 },
@@ -114,7 +100,6 @@ function predictTaiXiuTongProMax(history) {
       const { Tong } = item;
       const isTai = Tong >= 11;
 
-      // Xử lý Tài/Xỉu
       if (isTai === lastTaiXiu) {
         analysis.current.tai = isTai ? analysis.current.tai + 1 : 0;
         analysis.current.xiu = isTai ? 0 : analysis.current.xiu + 1;
@@ -127,12 +112,10 @@ function predictTaiXiuTongProMax(history) {
         lastTaiXiu = isTai;
       }
       
-      // Cập nhật max streaks
       analysis.max.tai = Math.max(analysis.max.tai, analysis.current.tai);
       analysis.max.xiu = Math.max(analysis.max.xiu, analysis.current.xiu);
     });
 
-    // Tính average streaks
     for (const key of ['tai', 'xiu']) {
       const streaks = streakCounts[key];
       analysis.averages[key] = streaks.length > 0 ? 
@@ -142,7 +125,6 @@ function predictTaiXiuTongProMax(history) {
     return analysis;
   }
 
-  // Hàm phân tích mẫu hình
   function getPatternAnalysis(data) {
     const patternConfigs = [
       { length: 3, minOccurrences: 5 },
@@ -157,11 +139,11 @@ function predictTaiXiuTongProMax(history) {
       if (data.length < length * 2) return;
 
       const patterns = {};
-      const currentPattern = data.slice(-length).map(e => e.Tong >= 11 ? 'T' : 'X').join('');
+      const currentPattern = data.slice(0, length).map(e => e.Tong >= 11 ? 'T' : 'X').join('');
 
-      for (let i = 0; i <= data.length - length - 1; i++) {
+      for (let i = length; i < data.length - length; i++) {
         const pattern = data.slice(i, i + length).map(e => e.Tong >= 11 ? 'T' : 'X').join('');
-        const next = data[i + length];
+        const next = data[i - 1];
         const outcome = next.Tong >= 11 ? 'T' : 'X';
 
         if (!patterns[pattern]) {
@@ -201,7 +183,6 @@ function predictTaiXiuTongProMax(history) {
     return patternResults;
   }
 
-  // Hàm phát hiện chu kỳ
   function detectCycles(data) {
     return {
       detected: false,
@@ -210,7 +191,6 @@ function predictTaiXiuTongProMax(history) {
     };
   }
 
-  // Hàm phát hiện bất thường
   function detectAnomalies(data) {
     const tongValues = data.map(item => item.Tong);
     const mean = tongValues.reduce((a, b) => a + b, 0) / tongValues.length;
@@ -228,7 +208,7 @@ function predictTaiXiuTongProMax(history) {
           index,
           tong: item.Tong,
           zScore,
-          isRecent: index >= data.length - 10
+          isRecent: index < 10
         });
       }
     });
@@ -241,7 +221,6 @@ function predictTaiXiuTongProMax(history) {
     };
   }
 
-  // Hàm phân tích xu hướng
   function getTrendAnalysis(periods) {
     const trends = {
       taiXiu: {
@@ -253,14 +232,14 @@ function predictTaiXiuTongProMax(history) {
 
     if (periods.ultraShort.length > 0 && periods.short.length > 0) {
       const ultraShortStats = getBasicStats(periods.ultraShort);
-      const shortStats = getBasicStats(periods.short.slice(0, periods.short.length - periods.ultraShort.length));
+      const shortStats = getBasicStats(periods.short.slice(periods.ultraShort.length));
       
       trends.taiXiu.shortTerm = ultraShortStats.taiRatio - shortStats.taiRatio;
     }
 
     if (periods.short.length > 0 && periods.medium.length > 0) {
       const shortStats = getBasicStats(periods.short);
-      const mediumStats = getBasicStats(periods.medium.slice(0, periods.medium.length - periods.short.length));
+      const mediumStats = getBasicStats(periods.medium.slice(periods.short.length));
       
       trends.taiXiu.mediumTerm = shortStats.taiRatio - mediumStats.taiRatio;
     }
@@ -273,7 +252,6 @@ function predictTaiXiuTongProMax(history) {
     return trends;
   }
 
-  // Hàm tổng hợp dự đoán thông minh
   function synthesizePrediction(type, analysis) {
     const weights = {
       basicStats: 0.3,
@@ -287,14 +265,11 @@ function predictTaiXiuTongProMax(history) {
     let taiScore = 0;
     let xiuScore = 0;
 
-    // Chỉ xử lý cho taiXiu
     if (type !== 'taiXiu') return null;
 
-    // Tính điểm từ basicStats
     taiScore += analysis.basicStats.tai * weights.basicStats;
     xiuScore += analysis.basicStats.xiu * weights.basicStats;
 
-    // Tính điểm từ streak analysis
     const { current, max, averages } = analysis.streak;
     const streakWeight = 0.7 * (current.tai / (max.tai || 1)) + 0.3 * (current.tai / (averages.tai || 1));
     taiScore += streakWeight * weights.streak;
@@ -302,7 +277,6 @@ function predictTaiXiuTongProMax(history) {
     const xiuStreakWeight = 0.7 * (current.xiu / (max.xiu || 1)) + 0.3 * (current.xiu / (averages.xiu || 1));
     xiuScore += xiuStreakWeight * weights.streak;
 
-    // Tính điểm từ pattern analysis
     for (const [_, pattern] of Object.entries(analysis.patterns)) {
       if (pattern.prediction === 'Tài') {
         taiScore += pattern.confidence * weights.patterns;
@@ -311,7 +285,6 @@ function predictTaiXiuTongProMax(history) {
       }
     }
 
-    // Tính điểm từ trend analysis
     if (analysis.trends[type].direction === 'up') {
       taiScore += weights.trends;
     } else if (analysis.trends[type].direction === 'down') {
@@ -321,7 +294,6 @@ function predictTaiXiuTongProMax(history) {
     return taiScore > xiuScore ? 'Tài' : 'Xỉu';
   }
 
-  // Các hàm hỗ trợ khác...
   function calculatePatternSimilarity(pattern1, pattern2) {
     let match = 0;
     const minLength = Math.min(pattern1.length, pattern2.length);
@@ -368,7 +340,7 @@ function predictTaiXiuTongProMax(history) {
        (analysis.trends.taiXiu.direction !== 'neutral' ? 0.1 : 0));
     
     return {
-      taiXiu: Math.min(95, Math.round(taiXiuConfidence * 100))
+      taiXiu: Math.min(95, Math.round(taiXiuConfidence * 150))
     };
   }
 
@@ -389,3 +361,6 @@ function predictTaiXiuTongProMax(history) {
     };
   }
 }
+
+// === DÒNG QUAN TRỌNG NHẤT ĐỂ SỬA LỖI ===
+module.exports = predictTaiXiuTongProMax;
