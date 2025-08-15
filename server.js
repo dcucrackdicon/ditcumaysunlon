@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 const express = require('express');
 const cors = require('cors');
-// Nạp thuật toán từ file 'thuatoan.js'
+// Nạp thuật toán mới từ file 'thuatoan.js'
 const analyzeAndPredict = require('./thuatoan.js');
 
 const app = express();
@@ -11,6 +11,12 @@ const PORT = process.env.PORT || 5000;
 // ===================================
 // === Trạng thái và Cấu hình API ===
 // ===================================
+
+// --- Biến mới để theo dõi kết quả ---
+let totalCorrect = 0;
+let totalIncorrect = 0;
+let lastPrediction = null; // Lưu dự đoán của phiên TRƯỚC ĐÓ
+
 let apiResponseData = {
     id: "@ghetvietcode - @tranbinh012 - @Phucdzvl2222",
     phien: null,
@@ -19,9 +25,12 @@ let apiResponseData = {
     xuc_xac_3: null,
     tong: null,
     ket_qua: "",
+    trang_thai: "Đang chờ phiên mới...", // Trạng thái Đúng/Sai
     du_doan: "?",
     ty_le_thanh_cong: "0%",
     giai_thich: "Đang chờ đủ dữ liệu để phân tích...",
+    tong_dung: 0,
+    tong_sai: 0,
     pattern: ""
 };
 
@@ -35,7 +44,7 @@ const WS_HEADERS = {
 };
 const RECONNECT_DELAY = 3000;
 const PING_INTERVAL = 15000;
-const MAX_HISTORY = 1000; // Đổi tên biến để rõ ràng hơn
+const MAX_HISTORY = 1000;
 
 const initialMessages = [
     [1, "MiniGame", "GM_freeallala", "00000000", { "info": "{\"ipAddress\":\"2001:ee0:1a67:a4ff:c44b:cb:f74c:232e\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiJuY2Juc25zYiIsImJvdCI6MCwiaXNNZXJjaGFudCI6ZmFsc2UsInZlcmlmaWVkQmFua0FjY291bnQiOmZhbHNlLCJwbGF5RXZlbnRMb2JieSI6ZmFsc2UsImN1c3RvbWVySWQiOjMxMjQ0MDc1MSwiYWZmSWQiOiJkZWZhdWx0IiwiYmFubmVkIjpmYWxzZSwiYnJhbmQiOiJnZW0iLCJ0aW1lc3RhbXAiOjE3NTUxMjM3MzM5MTYsImxvY2tHYW1lcyI6W10sImFtb3VudCI6MCwibG9ja0NoYXQiOmZhbHNlLCJwaG9uZVZlcmlmaWVkIjpmYWxzZSwiaXBBZGRyZXNzIjoiMjAwMTplZTA6MWE2NzphNGZmOmM0NGI6Y2I6Zjc0YzoyMzJlIiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8yMC5wbmciLCJwbGF0Zm9ybUlkIjo1LCJ1c2VySWQiOiJkYTIwNDliMy0wZmI3LTRkMGUtYjcwZS1hNzFkOThlOTVhOWEiLCJyZWdUaW1lIjoxNzU1MTIzNjI3ODQ0LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2ZyZWVhbGxhbGEifQ.1_TOsgvoOC0a9npbrSmg3C5rRP3sLdJUFIyB0vael3E\",\"locale\":\"vi\",\"userId\":\"da2049b3-0fb7-4d0e-b70e-a71d98e95a9a\",\"username\":\"GM_freeallala\",\"timestamp\":175512MDUxMywibG9ja0NoYXQiOmZhbHNlLCJwaG9uZVZlcmlmaWVkIjpmYWxzZSwiaXBBZGRyZXNzIjoiMjAwMTplZTA6MWE2NzphNGZmOmM0NGI6Y2I6Zjc0YzoyMzJlIiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8yMC5wbmciLCJwbGF0Zm9ybUlkIjo1LCJ1c2VySWQiOiJkYTIwNDliMy0wZmI3LTRkMGUtYjcwZS1hNzFkOThlOTVhOWEiLCJyZWdUaW1lIjoxNzU1MTIzNjI3ODQ0LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2ZyZWVhbGxhbGEifQ.1_TOsgvoOC0a9npbrSmg3C5rRP3sLdJUFIyB0vael3E\",\"locale\":\"vi\",\"userId\":\"da2049b3-0fb7-4d0e-b70e-a71d98e95a9a\",\"username\":\"GM_freeallala\",\"timestamp\":1755123733916,\"refreshToken\":\"db2b9da2c3264625b601a3d76d83b69f.6054e3c11d244bc48b4b8d7b0459f98d\"}", "signature": "279EFBD41388A221A4D3C44DFE320DA68FF51D935E69E28C339D81BC9E023D1D6F88336DB8025A3106EC5BCE0BF9D20B41DBACBAF844CB160326A62D90FBC8DFE55BB003BBE951773909E0F29426052AC2B3E1333C932CC70D0028878FD037EBFF0FA371216F23C08E2F126B1A882DBC6B1078ED44B40519CF7E8F5C772DF8DF" }],
@@ -89,11 +98,24 @@ function connectWebSocket() {
             if (cmd === 1003 && gBB && d1 !== undefined && d2 !== undefined && d3 !== undefined) {
                 const total = d1 + d2 + d3;
                 const resultText = (total > 10) ? 'Tài' : 'Xỉu';
+                const resultChar = (resultText === 'Tài') ? 'T' : 'X';
+                let currentStatus = "Chờ...";
 
+                // --- LOGIC ĐẾM ĐÚNG/SAI ---
+                if (lastPrediction) { // Chỉ so sánh nếu đã có dự đoán từ phiên trước
+                    if (lastPrediction === resultChar) {
+                        totalCorrect++;
+                        currentStatus = "Đúng";
+                    } else {
+                        totalIncorrect++;
+                        currentStatus = "Sai";
+                    }
+                }
+                
                 const historyEntry = {
                     session: currentSessionId || 'N/A',
                     dice: [d1, d2, d3],
-                    Tong: total, // Thuật toán của bạn dùng key là 'Tong' (viết hoa)
+                    Tong: total,
                     result: resultText
                 };
                 fullGameHistory.unshift(historyEntry);
@@ -101,20 +123,25 @@ function connectWebSocket() {
                     fullGameHistory.pop();
                 }
                 
-                // Gọi thuật toán và nhận kết quả
-                const predictionResult = analyzeAndPredict(fullGameHistory);
+                // --- GỌI THUẬT TOÁN MỚI ---
+                const historyString = fullGameHistory.map(h => h.result === 'Tài' ? 'T' : 'X').join('');
+                const predictionResult = analyzeAndPredict(historyString);
 
                 let finalDuDoan = "?";
-                let finalTyLe = "0%";
-                let finalGiaiThich = "Đang chờ đủ 50 phiên để phân tích...";
+                let finalGiaiThich = "Đang chờ đủ 13 phiên để phân tích...";
 
                 if (predictionResult) {
-                    // Nếu thuật toán có kết quả, xử lý nó
-                    const originalPrediction = predictionResult.taiXiu;
-                    finalDuDoan = originalPrediction === 'Tài' ? 'Xỉu' : 'Tài'; // Đảo ngược dự đoán
-                    finalTyLe = `${predictionResult.confidence.taiXiu}%`;
-                    finalGiaiThich = predictionResult.analysisReport.recommendations.join(' ');
+                    finalDuDoan = predictionResult.prediction === 'T' ? 'Tài' : 'Xỉu';
+                    finalGiaiThich = `Loại cầu: ${predictionResult.patternType}`;
+                    // Cập nhật lastPrediction cho phiên tiếp theo
+                    lastPrediction = predictionResult.prediction; 
+                } else {
+                    lastPrediction = null; // Reset nếu không tìm thấy cầu
                 }
+
+                // Tính toán tỷ lệ
+                const totalPredictions = totalCorrect + totalIncorrect;
+                const successRate = totalPredictions > 0 ? ((totalCorrect / totalPredictions) * 100).toFixed(2) : 0;
 
                 apiResponseData = {
                     ...apiResponseData,
@@ -124,13 +151,16 @@ function connectWebSocket() {
                     xuc_xac_3: d3,
                     tong: total,
                     ket_qua: resultText,
+                    trang_thai: currentStatus,
                     du_doan: finalDuDoan,
-                    ty_le_thanh_cong: finalTyLe,
+                    ty_le_thanh_cong: `${successRate}%`,
                     giai_thich: finalGiaiThich,
-                    pattern: fullGameHistory.map(h => h.result === 'Tài' ? 'T' : 'X').join('')
+                    tong_dung: totalCorrect,
+                    tong_sai: totalIncorrect,
+                    pattern: historyString
                 };
                 
-                console.log(`[GAME] Phiên ${apiResponseData.phien}: ${apiResponseData.tong} (${apiResponseData.ket_qua}) | Dự đoán: ${apiResponseData.du_doan} (${apiResponseData.ty_le_thanh_cong})`);
+                console.log(`[GAME] Phiên ${apiResponseData.phien}: ${apiResponseData.tong} (${apiResponseData.ket_qua}) | Trạng thái: ${apiResponseData.trang_thai} | Dự đoán mới: ${apiResponseData.du_doan} | Tỷ lệ: ${successRate}%`);
                 
                 currentSessionId = null;
             }
