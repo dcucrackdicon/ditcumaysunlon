@@ -8244,14 +8244,21 @@ parseAndLoadData();
  * @returns {object|null} - Trả về object chứa dự đoán và loại cầu, hoặc null nếu không tìm thấy.
  */
 function analyzeAndPredict(historyString) {
-    if (typeof historyString !== 'string' || historyString.length < 13) {
+    if (typeof historyString !== 'string' || historyString.length < 5) {
         return null;
     }
     
-    // Chỉ lấy 13 ký tự đầu tiên để tra cứu
-    const lookupPattern = historyString.substring(0, 13);
+    // Lấy 5 ký tự đầu tiên làm tiền tố để tìm kiếm
+    const lookupPrefix = historyString.substring(0, 5);
     
-    return predictionMap.get(lookupPattern) || null;
+    // Tìm key ĐẦU TIÊN trong Map bắt đầu bằng chuỗi 5 ký tự này
+    for (const key of predictionMap.keys()) {
+        if (key.startsWith(lookupPrefix)) {
+            return predictionMap.get(key); // Trả về kết quả ngay khi tìm thấy
+        }
+    }
+    
+    return null; // Không tìm thấy key nào bắt đầu bằng chuỗi đó
 }
 
 module.exports = analyzeAndPredict;
