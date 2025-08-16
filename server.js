@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5000;
 // ===================================
 // === Trạng thái và Cấu hình API ===
 // ===================================
-// JSON trả về theo yêu cầu của bạn (đã bỏ "trang_thai")
+// JSON trả về (đã bỏ "giai_thich")
 let apiResponseData = {
     id: "@ghetvietcode - @tranbinh012 - @Phucdzvl2222",
     phien: null,
@@ -23,11 +23,11 @@ let apiResponseData = {
     tong: null,
     ket_qua: "",
     du_doan: "?",
-    giai_thich: "Đang chờ đủ dữ liệu để phân tích...",
     ty_le_thanh_cong: "0%",
     tong_dung: 0,
     tong_sai: 0,
-    pattern: ""
+    pattern: "",
+    tong_phien_da_phan_tich: 0
 };
 
 // --- Biến quản lý trạng thái ---
@@ -45,7 +45,6 @@ const WS_HEADERS = {
 const RECONNECT_DELAY = 2500;
 const PING_INTERVAL = 15000;
 
-// <<< SỬA LỖI: SỬ DỤNG LẠI CHÍNH XÁC `initialMessages` TỪ CODE GỐC CỦA BẠN >>>
 const initialMessages = [
     [1, "MiniGame", "GM_fbbdbebndbbc", "123123p", { "info": "{\"ipAddress\":\"2402:800:62cd:cb7c:1a7:7a52:9c3e:c290\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiJuZG5lYmViYnMiLCJib3QiOjAsImlzTWVyY2hhbnQiOmZhbHNlLCJ2ZXJpZmllZEJhbmtBY2NvdW50IjpmYWxzZSwicGxheUV2ZW50TG9iYnkiOmZhbHNlLCJjdXN0b21lcklkIjozMTIxMDczMTUsImFmZklkIjoiR0VNV0lOIiwiYmFubmVkIjpmYWxzZSwiYnJhbmQiOiJnZW0iLCJ0aW1lc3RhbXAiOjE3NTQ5MjYxMDI1MjcsImxvY2tHYW1lcyI6W10sImFtb3VudCI6MCwibG9ja0NoYXQiOmZhbHNlLCJwaG9uZVZlcmlmaWVkIjpmYWxzZSwiaXBBZGRyZXNzIjoiMjQwMjo4MDA6NjJjZDpjYjdjOjFhNzo3YTUyOjljM2U6YzI5MCIsIm11dGUiOmZhbHNlLCJhdmF0YXIiOiJodHRwczovL2ltYWdlcy5zd2luc2hvcC5uZXQvaW1hZ2VzL2F2YXRhci9hdmF0YXJfMDEucG5nIiwicGxhdGZvcm1JZCI6NSwidXNlcklkIjoiN2RhNDlhNDQtMjlhYS00ZmRiLWJkNGMtNjU5OTQ5YzU3NDdkIiwicmVnVGltZSI6MTc1NDkyNjAyMjUxNSwicGhvbmUiOiIiLCJkZXBvc2l0IjpmYWxzZSwidXNlcm5hbWUiOiJHTV9mYmJkYmVibmRiYmMifQ.DAyEeoAnz8we-Qd0xS0tnqOZ8idkUJkxksBjr_Gei8A\",\"locale\":\"vi\",\"userId\":\"7da49a44-29aa-4fdb-bd4c-659949c5747d\",\"username\":\"GM_fbbdbebndbbc\",\"timestamp\":1754926102527,\"refreshToken\":\"7cc4ad191f4348849f69427a366ea0fd.a68ece9aa85842c7ba523170d0a4ae3e\"}", "signature": "53D9E12F910044B140A2EC659167512E2329502FE84A6744F1CD5CBA9B6EC04915673F2CBAE043C4EDB94DDF88F3D3E839A931100845B8F179106E1F44ECBB4253EC536610CCBD0CE90BD8495DAC3E8A9DBDB46FE49B51E88569A6F117F8336AC7ADC226B4F213ECE2F8E0996F2DD5515476C8275F0B2406CDF2987F38A6DA24"}],
     [6, "MiniGame", "taixiuPlugin", { cmd: 1005 }],
@@ -94,14 +93,14 @@ function connectWebSocket() {
                 currentSessionId = sid;
             }
 
-            // Xử lý kết quả game (dùng lại check `gBB` từ code gốc cho an toàn)
+            // Xử lý kết quả game
             if (cmd === 1003 && gBB) {
-                if (!d1 || !d2 || !d3) return; 
+                if (!d1 || !d2 || !d3) return;
 
                 const total = d1 + d2 + d3;
                 const result = (total > 10) ? "Tài" : "Xỉu";
                 
-                // Cập nhật thống kê ĐÚNG/SAI
+                // Cập nhật thống kê ĐÚNG/SAI dựa trên dự đoán đã lưu
                 if (lastPrediction && lastPrediction !== "?") {
                     if (lastPrediction === result) {
                         apiResponseData.tong_dung++;
@@ -119,8 +118,14 @@ function connectWebSocket() {
                     fullHistory.shift();
                 }
 
-                // Lấy dự đoán mới từ thuật toán
-                const { prediction, reason } = getPrediction(fullHistory);
+                // Lấy dự đoán GỐC từ thuật toán (chỉ cần prediction)
+                const { prediction: originalPrediction } = getPrediction(fullHistory);
+                
+                // === THAY ĐỔI: ĐẢO NGƯỢC DỰ ĐOÁN ===
+                let finalPrediction = "?";
+                if (originalPrediction !== "?") {
+                    finalPrediction = originalPrediction === 'Tài' ? 'Xỉu' : 'Tài';
+                }
 
                 // Cập nhật JSON trả về
                 apiResponseData.phien = currentSessionId;
@@ -129,17 +134,17 @@ function connectWebSocket() {
                 apiResponseData.xuc_xac_3 = d3;
                 apiResponseData.tong = total;
                 apiResponseData.ket_qua = result;
-                apiResponseData.du_doan = prediction;
-                apiResponseData.giai_thich = reason;
+                apiResponseData.du_doan = finalPrediction; // Sử dụng dự đoán đã đảo ngược
                 apiResponseData.pattern = fullHistory.map(h => h.result === 'Tài' ? 'T' : 'X').join('');
-                
-                // Lưu lại dự đoán mới
-                lastPrediction = prediction;
-                
-                // Reset ID phiên sau khi có kết quả (giống code gốc)
-                currentSessionId = null; 
+                apiResponseData.tong_phien_da_phan_tich = fullHistory.length; // Cập nhật tổng số phiên
 
-                console.log(`Phiên #${apiResponseData.phien}: ${apiResponseData.tong} (${result}) | Dự đoán mới: ${prediction} | Tỷ lệ: ${apiResponseData.ty_le_thanh_cong}`);
+                // Lưu lại dự đoán MỚI (đã đảo ngược) để so sánh ở phiên tiếp theo
+                lastPrediction = finalPrediction;
+                
+                // Reset ID phiên
+                currentSessionId = null;
+
+                console.log(`Phiên #${apiResponseData.phien}: ${apiResponseData.tong} (${result}) | Dự đoán mới: ${finalPrediction} (Đảo ngược) | Tỷ lệ: ${apiResponseData.ty_le_thanh_cong}`);
             }
         } catch (e) {
             console.error('[❌] Lỗi xử lý message:', e.message);
@@ -163,7 +168,7 @@ function connectWebSocket() {
 // === API Endpoints (Giữ nguyên) ===
 // ===================================
 app.get('/sunlon', (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.send(JSON.stringify(apiResponseData, null, 4));
 });
 
@@ -182,7 +187,7 @@ app.get('/history', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send(`<h2>🎯 API Phân Tích Sunwin Tài Xỉu</h2><p>Xem kết quả JSON (định dạng dọc): <a href="/sunlon">/sunlon</a></p><p>Xem lịch sử 1000 phiên gần nhất: <a href="/history">/history</a></p>`);
+    res.send(`<h2>🎯 API Phân Tích Sunwin Tài Xỉu (Chế độ Đảo ngược)</h2><p>Xem kết quả JSON (định dạng dọc): <a href="/sunlon">/sunlon</a></p><p>Xem lịch sử 1000 phiên gần nhất: <a href="/history">/history</a></p>`);
 });
 
 // ===================================
