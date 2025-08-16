@@ -1,10 +1,10 @@
-// Server.js
+// server.js
 
 const WebSocket = require('ws');
 const express = require('express');
 const cors = require('cors');
-// Giả sử file thuatoan.js vẫn nằm cùng thư mục
-const { getPrediction } = require('./thuatoan.js');
+// THAY ĐỔI: Import class TaiXiuPredictor từ file thuatoan.js
+const { TaiXiuPredictor } = require('./thuatoan.js');
 
 const app = express();
 app.use(cors());
@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5000;
 // ===================================
 // === Trạng thái và Cấu hình API ===
 // ===================================
-// JSON trả về (đã bỏ "giai_thich")
+// JSON trả về (giữ nguyên cấu trúc)
 let apiResponseData = {
     id: "@ghetvietcode - @tranbinh012 - @Phucdzvl2222",
     phien: null,
@@ -34,7 +34,10 @@ let apiResponseData = {
 const MAX_HISTORY_SIZE = 1000;
 let currentSessionId = null;
 let lastPrediction = null; // Lưu dự đoán của phiên trước để so sánh
-const fullHistory = []; // Lưu lịch sử chi tiết cho thuật toán và endpoint /history
+const fullHistory = []; // Lịch sử giờ sẽ lưu cả dự đoán và kết quả đúng/sai
+
+// THAY ĐỔI: Khởi tạo một thực thể của predictor
+const predictor = new TaiXiuPredictor();
 
 // --- Cấu hình WebSocket ---
 const WEBSOCKET_URL = "wss://websocket.azhkthg1.net/websocket?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhbW91bnQiOjAsInVzZXJuYW1lIjoiU0NfYXBpc3Vud2luMTIzIn0.hgrRbSV6vnBwJMg9ZFtbx3rRu9mX_hZMZ_m5gMNhkw0";
@@ -50,7 +53,6 @@ const initialMessages = [
     [6, "MiniGame", "taixiuPlugin", { cmd: 1005 }],
     [6, "MiniGame", "lobbyPlugin", { cmd: 10001 }]
 ];
-
 
 // ===================================
 // === WebSocket Client ===
@@ -88,43 +90,52 @@ function connectWebSocket() {
 
             const { cmd, sid, d1, d2, d3, gBB } = data[1];
 
-            // Cập nhật ID phiên mới
             if (cmd === 1008 && sid) {
                 currentSessionId = sid;
             }
 
-            // Xử lý kết quả game
             if (cmd === 1003 && gBB) {
                 if (!d1 || !d2 || !d3) return;
 
                 const total = d1 + d2 + d3;
                 const result = (total > 10) ? "Tài" : "Xỉu";
                 
-                // Cập nhật thống kê ĐÚNG/SAI dựa trên dự đoán đã lưu
+                // THAY ĐỔI: Logic xử lý dự đoán và lịch sử
+                let correctnessStatus = null;
                 if (lastPrediction && lastPrediction !== "?") {
                     if (lastPrediction === result) {
                         apiResponseData.tong_dung++;
+                        correctnessStatus = "ĐÚNG";
                     } else {
                         apiResponseData.tong_sai++;
+                        correctnessStatus = "SAI";
                     }
                 }
                 const totalGames = apiResponseData.tong_dung + apiResponseData.tong_sai;
                 apiResponseData.ty_le_thanh_cong = totalGames === 0 ? "0%" : `${((apiResponseData.tong_dung / totalGames) * 100).toFixed(0)}%`;
 
-                // Lưu lịch sử
-                const historyEntry = { session: currentSessionId, d1, d2, d3, totalScore: total, result };
+                const historyEntry = { 
+                    session: currentSessionId, 
+                    d1, d2, d3, 
+                    totalScore: total, 
+                    result, 
+                    prediction: lastPrediction, // Lưu dự đoán đã đưa ra cho phiên này
+                    correctness: correctnessStatus // Lưu trạng thái đúng/sai
+                };
                 fullHistory.push(historyEntry);
                 if (fullHistory.length > MAX_HISTORY_SIZE) {
                     fullHistory.shift();
                 }
 
-                // Lấy dự đoán GỐC từ thuật toán (chỉ cần prediction)
-                const { prediction: originalPrediction } = getPrediction(fullHistory);
+                // Cập nhật thuật toán với kết quả mới nhất
+                const algoResultFormat = result === 'Tài' ? 'T' : 'X';
+                predictor.updateData([algoResultFormat]);
                 
-                // === THAY ĐỔI: ĐẢO NGƯỢC DỰ ĐOÁN ===
+                // Lấy dự đoán mới từ thuật toán (không đảo ngược)
+                const { prediction: algoPrediction } = predictor.predict();
                 let finalPrediction = "?";
-                if (originalPrediction !== "?") {
-                    finalPrediction = originalPrediction === 'Tài' ? 'Xỉu' : 'Tài';
+                if (algoPrediction) {
+                    finalPrediction = algoPrediction === 'T' ? 'Tài' : 'Xỉu';
                 }
 
                 // Cập nhật JSON trả về
@@ -134,17 +145,16 @@ function connectWebSocket() {
                 apiResponseData.xuc_xac_3 = d3;
                 apiResponseData.tong = total;
                 apiResponseData.ket_qua = result;
-                apiResponseData.du_doan = finalPrediction; // Sử dụng dự đoán đã đảo ngược
+                apiResponseData.du_doan = finalPrediction; // Sử dụng dự đoán gốc
                 apiResponseData.pattern = fullHistory.map(h => h.result === 'Tài' ? 'T' : 'X').join('');
-                apiResponseData.tong_phien_da_phan_tich = fullHistory.length; // Cập nhật tổng số phiên
+                apiResponseData.tong_phien_da_phan_tich = fullHistory.length;
 
-                // Lưu lại dự đoán MỚI (đã đảo ngược) để so sánh ở phiên tiếp theo
+                // Lưu lại dự đoán MỚI để so sánh ở phiên tiếp theo
                 lastPrediction = finalPrediction;
                 
-                // Reset ID phiên
                 currentSessionId = null;
 
-                console.log(`Phiên #${apiResponseData.phien}: ${apiResponseData.tong} (${result}) | Dự đoán mới: ${finalPrediction} (Đảo ngược) | Tỷ lệ: ${apiResponseData.ty_le_thanh_cong}`);
+                console.log(`Phiên #${apiResponseData.phien}: ${apiResponseData.tong} (${result}) | Dự đoán mới: ${finalPrediction} | Tỷ lệ: ${apiResponseData.ty_le_thanh_cong}`);
             }
         } catch (e) {
             console.error('[❌] Lỗi xử lý message:', e.message);
@@ -165,29 +175,55 @@ function connectWebSocket() {
 }
 
 // ===================================
-// === API Endpoints (Giữ nguyên) ===
+// === API Endpoints ===
 // ===================================
 app.get('/sunlon', (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.send(JSON.stringify(apiResponseData, null, 4));
 });
 
+// THAY ĐỔI: Endpoint /history hiển thị ĐÚNG/SAI
 app.get('/history', (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    let html = `<style>body{font-family:monospace;background-color:#121212;color:#e0e0e0;}.entry{border-bottom:1px solid #444;padding:5px;}.tai{color:#28a745;}.xiu{color:#dc3545;}</style><h2>Lịch sử ${fullHistory.length} phiên gần nhất</h2>`;
+    let html = `<style>
+                    body{font-family:monospace;background-color:#121212;color:#e0e0e0;}
+                    .entry{border-bottom:1px solid #444;padding:5px;}
+                    .tai, .dung{color:#28a745;}
+                    .xiu, .sai{color:#dc3545;}
+                </style>
+                <h2>Lịch sử ${fullHistory.length} phiên gần nhất</h2>`;
+
     if (fullHistory.length === 0) {
         html += '<p>Chưa có dữ liệu lịch sử.</p>';
     } else {
         [...fullHistory].reverse().forEach(h => {
             const resultClass = h.result === 'Tài' ? 'tai' : 'xiu';
-            html += `<div class="entry">- Phiên: ${h.session}<br/>- Kết quả: <b class="${resultClass}">${h.result}</b><br/>- Xúc xắc: [${h.d1}]-[${h.d2}]-[${h.d3}]<br/>- Tổng: ${h.totalScore}</div>`;
+            let statusHtml = '';
+            if (h.correctness === "ĐÚNG") {
+                statusHtml = ` <span class="dung">✅ ĐÚNG</span>`;
+            } else if (h.correctness === "SAI") {
+                statusHtml = ` <span class="sai">❌ SAI</span>`;
+            }
+
+            const predictionHtml = h.prediction && h.prediction !== "?"
+                ? `- Dự đoán: <b>${h.prediction}</b>${statusHtml}<br/>`
+                : '';
+
+            html += `<div class="entry">
+                        - Phiên: ${h.session}<br/>
+                        ${predictionHtml}
+                        - Kết quả: <b class="${resultClass}">${h.result}</b><br/>
+                        - Xúc xắc: [${h.d1}]-[${h.d2}]-[${h.d3}]<br/>
+                        - Tổng: ${h.totalScore}
+                     </div>`;
         });
     }
     res.send(html);
 });
 
+
 app.get('/', (req, res) => {
-    res.send(`<h2>🎯 API Phân Tích Sunwin Tài Xỉu (Chế độ Đảo ngược)</h2><p>Xem kết quả JSON (định dạng dọc): <a href="/sunlon">/sunlon</a></p><p>Xem lịch sử 1000 phiên gần nhất: <a href="/history">/history</a></p>`);
+    res.send(`<h2>🎯 API Phân Tích Sunwin Tài Xỉu</h2><p>Xem kết quả JSON (định dạng dọc): <a href="/sunlon">/sunlon</a></p><p>Xem lịch sử 1000 phiên gần nhất: <a href="/history">/history</a></p>`);
 });
 
 // ===================================
