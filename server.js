@@ -125,7 +125,19 @@ function connectWebSocket() {
                 let predictionConfidence = "0%";
                 
                 if (predictionResult && predictionResult.prediction) {
-                    finalPrediction = predictionResult.prediction;
+                    const originalPrediction = predictionResult.prediction;
+                    
+                    // =========================================================
+                    // == THAY ĐỔI LOGIC TẠI ĐÂY: Đảo ngược kết quả dự đoán ==
+                    if (originalPrediction === 'Tài') {
+                        finalPrediction = 'Xỉu';
+                    } else if (originalPrediction === 'Xỉu') {
+                        finalPrediction = 'Tài';
+                    } else {
+                        finalPrediction = originalPrediction; // Giữ nguyên nếu không phải Tài/Xỉu
+                    }
+                    // =========================================================
+
                     predictionConfidence = `${(predictionResult.confidence * 100).toFixed(0)}%`;
                 }
 
