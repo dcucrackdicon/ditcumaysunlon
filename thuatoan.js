@@ -1,10 +1,10 @@
 /**
  * thuatoan.js
- * Phiên bản "Bắt Cầu Thông Minh & Ngẫu Nhiên".
+ * Phiên bản "Bắt Cầu Thông Minh & Ngẫu Nhiên Đảo Ngược".
  * Ưu tiên 1: Bắt cầu bệt dài (3+).
  * Ưu tiên 2: Bắt cầu 1-1.
  * Ưu tiên 3: Bắt cầu bệt non (2).
- * Mặc định: DỰ ĐOÁN NGẪU NHIÊN.
+ * Mặc định: NGẪU NHIÊN & ĐẢO NGƯỢC.
  */
 
 // --- CÁC HÀM PHÂN TÍCH (Không thay đổi) ---
@@ -114,13 +114,23 @@ class MasterPredictor {
             };
         }
 
-        // --- MẶC ĐỊNH MỚI: DỰ ĐOÁN NGẪU NHIÊN ---
-        // Nếu không có cầu rõ ràng, tạo một dự đoán ngẫu nhiên.
-        const prediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
-        const confidence = 0.50; // Độ tin cậy 50/50 vì là ngẫu nhiên
-        const reason = `Không có cầu rõ ràng, dự đoán ngẫu nhiên là ${prediction}.`;
+        // --- MẶC ĐỊNH MỚI: NGẪU NHIÊN & ĐẢO NGƯỢC ---
+        // Nếu không có cầu rõ ràng, tạo một dự đoán ngẫu nhiên rồi đảo ngược nó.
         
-        return { prediction, confidence, reason };
+        // Bước 1: Tạo một dự đoán ngẫu nhiên (Tài hoặc Xỉu)
+        const randomPrediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
+
+        // Bước 2: Đảo ngược dự đoán ngẫu nhiên đó
+        const finalPrediction = randomPrediction === 'Tài' ? 'Xỉu' : 'Tài';
+        
+        const confidence = 0.50; // Độ tin cậy là 50/50 vì đây là ngẫu nhiên
+        const reason = `Không có cầu rõ ràng, dự đoán ngẫu nhiên đảo ngược (${randomPrediction} -> ${finalPrediction}).`;
+        
+        return { 
+            prediction: finalPrediction, 
+            confidence, 
+            reason 
+        };
     }
 }
 
