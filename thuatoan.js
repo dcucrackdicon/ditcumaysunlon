@@ -1,13 +1,13 @@
 /**
  * thuatoan.js
- * Phiên bản "Bắt Cầu Thông Minh".
- * Ưu tiên 1: Bắt cầu bệt (3+ phiên giống nhau).
- * Ưu tiên 2: Bắt cầu 1-1 (xen kẽ).
- * Mặc định: KHÔNG DỰ ĐOÁN (Chờ cầu rõ ràng).
+ * Phiên bản "Bắt Cầu Thông Minh & Ngẫu Nhiên Đảo Ngược".
+ * Ưu tiên 1: Bắt cầu bệt dài (3+).
+ * Ưu tiên 2: Bắt cầu 1-1.
+ * Ưu tiên 3: Bắt cầu bệt non (2).
+ * Mặc định: NGẪU NHIÊN & ĐẢO NGƯỢC.
  */
 
-// --- CÁC HÀM PHÂN TÍCH (Không được sử dụng trong phiên bản này) ---
-// Giữ lại các hàm này nếu bạn muốn quay lại thuật toán cũ sau này.
+// --- CÁC HÀM PHÂN TÍCH (Không thay đổi) ---
 function analyzeStreak(history) {
     if (history.length === 0) return { streak: 0, currentResult: null, breakProb: 0.0 };
     let streak = 1;
@@ -75,7 +75,6 @@ class MasterPredictor {
     }
 
     async predict() {
-        // BƯỚC 1: KIỂM TRA ĐIỀU KIỆN (Yêu cầu 5 phiên)
         if (this.history.length < 5) {
             return {
                 prediction: "?",
@@ -84,36 +83,54 @@ class MasterPredictor {
             };
         }
 
-        // Lấy 3 kết quả gần nhất để phân tích cầu
-        const last3Results = this.history.slice(-3).map(h => h.result);
-        const last = last3Results[2];
-        const secondLast = last3Results[1];
-        const thirdLast = last3Results[0];
+        const last = this.history[this.history.length - 1].result;
+        const secondLast = this.history[this.history.length - 2].result;
+        const thirdLast = this.history[this.history.length - 3].result;
 
-        // --- ƯU TIÊN 1: KIỂM TRA CẦU BỆT ---
+        // --- ƯU TIÊN 1: KIỂM TRA CẦU BỆT DÀI (3+ phiên) ---
         if (last === secondLast && secondLast === thirdLast) {
-            const prediction = last; // Đi theo cầu
-            const confidence = 0.85; // Độ tin cậy cao khi có cầu bệt
-            const reason = `Phát hiện cầu bệt ${prediction} (3+ phiên), đi theo cầu.`;
-            return { prediction, confidence, reason };
+            return {
+                prediction: last,
+                confidence: 0.85,
+                reason: `Phát hiện cầu bệt dài ${last} (3+ phiên), đi theo cầu.`
+            };
         }
 
         // --- ƯU TIÊN 2: KIỂM TRA CẦU 1-1 ---
-        // Ví dụ: Tài - Xỉu - Tài. (last !== secondLast && last === thirdLast)
         if (last !== secondLast && last === thirdLast) {
-            const prediction = secondLast; // Dự đoán kết quả tiếp theo để tạo thành chuỗi 1-1
-            const confidence = 0.80; // Độ tin cậy cao
-            const reason = `Phát hiện cầu 1-1 (${thirdLast}-${secondLast}-${last}), đi theo cầu.`;
-            return { prediction, confidence, reason };
+            return {
+                prediction: secondLast,
+                confidence: 0.80,
+                reason: `Phát hiện cầu 1-1 (${thirdLast}-${secondLast}-${last}), đi theo cầu.`
+            };
         }
 
-        // --- MẶC ĐỊNH MỚI: CHỜ CẦU ---
-        // Nếu không có cầu bệt hay cầu 1-1 rõ ràng, sẽ không dự đoán.
-        const prediction = "?";
-        const confidence = 0;
-        const reason = `Không có cầu rõ ràng, nên bỏ qua phiên này.`;
+        // --- ƯU TIÊN 3: KIỂM TRA CẦU BỆT NON (2 phiên) ---
+        if (last === secondLast && last !== thirdLast) {
+            return {
+                prediction: last,
+                confidence: 0.75,
+                reason: `Phát hiện cầu bệt non ${last} (2 phiên), đi theo cầu.`
+            };
+        }
+
+        // --- MẶC ĐỊNH MỚI: NGẪU NHIÊN & ĐẢO NGƯỢC ---
+        // Nếu không có cầu rõ ràng, tạo một dự đoán ngẫu nhiên rồi đảo ngược nó.
         
-        return { prediction, confidence, reason };
+        // Bước 1: Tạo một dự đoán ngẫu nhiên (Tài hoặc Xỉu)
+        const randomPrediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
+
+        // Bước 2: Đảo ngược dự đoán ngẫu nhiên đó
+        const finalPrediction = randomPrediction === 'Tài' ? 'Xỉu' : 'Tài';
+        
+        const confidence = 0.50; // Độ tin cậy là 50/50 vì đây là ngẫu nhiên
+        const reason = `Không có cầu rõ ràng, dự đoán ngẫu nhiên đảo ngược (${randomPrediction} -> ${finalPrediction}).`;
+        
+        return { 
+            prediction: finalPrediction, 
+            confidence, 
+            reason 
+        };
     }
 }
 
