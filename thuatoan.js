@@ -1,10 +1,11 @@
 /**
  * thuatoan.js
- * Phiên bản "Bắt Cầu Thông Minh & Ngẫu Nhiên Đảo Ngược".
- * Ưu tiên 1: Bắt cầu bệt dài (3+).
- * Ưu tiên 2: Bắt cầu 1-1.
- * Ưu tiên 3: Bắt cầu bệt non (2).
- * Mặc định: NGẪU NHIÊN & ĐẢO NGƯỢC.
+ * Phiên bản "Bắt Cầu Nâng Cao".
+ * Ưu tiên 1: Các cầu đặc biệt dài (3-3, 2-1-1-2, 2-2).
+ * Ưu tiên 2: Bắt cầu bệt dài (3+).
+ * Ưu tiên 3: Bắt cầu 1-1.
+ * Ưu tiên 4: Bắt cầu bệt non (2).
+ * Mặc định: DỰ ĐOÁN NGẪU NHIÊN.
  */
 
 // --- CÁC HÀM PHÂN TÍCH (Không thay đổi) ---
@@ -75,62 +76,87 @@ class MasterPredictor {
     }
 
     async predict() {
-        if (this.history.length < 5) {
+        // Yêu cầu tối thiểu 7 phiên để phân tích các cầu dài
+        if (this.history.length < 7) {
             return {
                 prediction: "?",
                 confidence: 0,
-                reason: `Đang chờ đủ 5 phiên để bắt đầu. Hiện có: ${this.history.length} phiên.`
+                reason: `Đang chờ đủ 7 phiên để bắt đầu. Hiện có: ${this.history.length} phiên.`
             };
         }
 
-        const last = this.history[this.history.length - 1].result;
-        const secondLast = this.history[this.history.length - 2].result;
-        const thirdLast = this.history[this.history.length - 3].result;
+        // Lấy lịch sử kết quả gần nhất để phân tích
+        const r = this.history.map(h => h.result);
+        const r1 = r[r.length - 1]; // Gần nhất
+        const r2 = r[r.length - 2];
+        const r3 = r[r.length - 3];
+        const r4 = r[r.length - 4];
+        const r5 = r[r.length - 5];
+        const r6 = r[r.length - 6];
 
-        // --- ƯU TIÊN 1: KIỂM TRA CẦU BỆT DÀI (3+ phiên) ---
-        if (last === secondLast && secondLast === thirdLast) {
+        // --- ƯU TIÊN 1: CÁC CẦU ĐẶC BIỆT (Dài và hiếm, độ chính xác cao) ---
+
+        // Cầu 3-3: (VD: T-T-T-X-X-X -> Dự đoán T)
+        if (r1 === r2 && r2 === r3 && r4 === r5 && r5 === r6 && r1 !== r4) {
+             return {
+                prediction: r4,
+                confidence: 0.88,
+                reason: `Phát hiện cầu 3-3 (${r6}${r5}${r4}-${r3}${r2}${r1}), bẻ cầu.`
+            };
+        }
+        
+        // Cầu 2-1-1-2: (VD: T-T-X-X-T -> Dự đoán T để thành T-T-X-X-T-T)
+        // Đây là dạng cầu gánh/đối xứng
+        if (r1 === r4 && r2 === r3 && r1 !== r2 && r4 !== r5) {
+             return {
+                prediction: r1,
+                confidence: 0.86,
+                reason: `Phát hiện cầu gánh 2-1-1-2 (${r5}${r4}-${r3}${r2}-${r1}...), theo đối xứng.`
+            };
+        }
+
+        // Cầu 2-2: (VD: T-T-X-X -> Dự đoán T)
+        if (r1 === r2 && r3 === r4 && r1 !== r3) {
+             return {
+                prediction: r3,
+                confidence: 0.82,
+                reason: `Phát hiện cầu 2-2 (${r4}${r3}-${r2}${r1}), bẻ cầu.`
+            };
+        }
+        
+        // --- ƯU TIÊN 2: CẦU BỆT DÀI (3+ phiên) ---
+        if (r1 === r2 && r2 === r3) {
             return {
-                prediction: last,
+                prediction: r1,
                 confidence: 0.85,
-                reason: `Phát hiện cầu bệt dài ${last} (3+ phiên), đi theo cầu.`
+                reason: `Phát hiện cầu bệt dài ${r1} (3+ phiên), đi theo cầu.`
             };
         }
 
-        // --- ƯU TIÊN 2: KIỂM TRA CẦU 1-1 ---
-        if (last !== secondLast && last === thirdLast) {
+        // --- ƯU TIÊN 3: CẦU 1-1 ---
+        if (r1 !== r2 && r1 === r3) {
             return {
-                prediction: secondLast,
+                prediction: r2,
                 confidence: 0.80,
-                reason: `Phát hiện cầu 1-1 (${thirdLast}-${secondLast}-${last}), đi theo cầu.`
+                reason: `Phát hiện cầu 1-1 (${r3}-${r2}-${r1}), đi theo cầu.`
             };
         }
 
-        // --- ƯU TIÊN 3: KIỂM TRA CẦU BỆT NON (2 phiên) ---
-        if (last === secondLast && last !== thirdLast) {
+        // --- ƯU TIÊN 4: CẦU BỆT NON (2 phiên) ---
+        if (r1 === r2 && r1 !== r3) {
             return {
-                prediction: last,
+                prediction: r1,
                 confidence: 0.75,
-                reason: `Phát hiện cầu bệt non ${last} (2 phiên), đi theo cầu.`
+                reason: `Phát hiện cầu bệt non ${r1} (2 phiên), đi theo cầu.`
             };
         }
 
-        // --- MẶC ĐỊNH MỚI: NGẪU NHIÊN & ĐẢO NGƯỢC ---
-        // Nếu không có cầu rõ ràng, tạo một dự đoán ngẫu nhiên rồi đảo ngược nó.
+        // --- MẶC ĐỊNH: DỰ ĐOÁN NGẪU NHIÊN ---
+        const prediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
+        const confidence = 0.50; // Độ tin cậy 50/50 vì là ngẫu nhiên
+        const reason = `Không có cầu rõ ràng, dự đoán ngẫu nhiên là ${prediction}.`;
         
-        // Bước 1: Tạo một dự đoán ngẫu nhiên (Tài hoặc Xỉu)
-        const randomPrediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
-
-        // Bước 2: Đảo ngược dự đoán ngẫu nhiên đó
-        const finalPrediction = randomPrediction === 'Tài' ? 'Xỉu' : 'Tài';
-        
-        const confidence = 0.50; // Độ tin cậy là 50/50 vì đây là ngẫu nhiên
-        const reason = `Không có cầu rõ ràng, dự đoán ngẫu nhiên đảo ngược (${randomPrediction} -> ${finalPrediction}).`;
-        
-        return { 
-            prediction: finalPrediction, 
-            confidence, 
-            reason 
-        };
+        return { prediction, confidence, reason };
     }
 }
 
