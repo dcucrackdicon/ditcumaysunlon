@@ -1,479 +1,544 @@
-/**
- * @file thuatoan.js
- * @description Tập hợp 3 thuật toán dự đoán Tài/Xỉu vào một hệ thống duy nhất.
- * - AdvancedTaiXiuPredictor (Thuật toán 1): Một framework AI phức tạp với nhiều mô hình con.
- * - TaiXiuPredictor (Thuật toán 2): Một hệ thống phân tích đa tầng với các mô hình thống kê.
- * - HeuristicPredictor (Thuật toán 3): Một hệ thống dựa trên heuristic, phân tích cầu và các mẫu ngắn hạn.
- * - MasterPredictor: Lớp tổng hợp, điều phối cả 3 thuật toán để đưa ra quyết định cuối cùng.
- */
+// thuatoan.js
+const predictionModel = {
+  models: {},
+  performanceStats: {},
+  config: {
+    minHistoryLength: 5,
+    maxHistoryLength: 50,
+    patternRecognitionDepth: 7,
+    dynamicWeightAdjustment: true,
+    streakBreakThreshold: 0.7,
+    scoreAnalysisWeight: 0.3,
+    patternAnalysisWeight: 0.25,
+    trendAnalysisWeight: 0.2,
+    statisticalAnalysisWeight: 0.15,
+    volatilityAnalysisWeight: 0.1
+  }
+};
 
-// ===================================================================================
-// THUẬT TOÁN 1: ADVANCED AI PREDICTOR (ĐÃ GIẢ LẬP CÁC LỚP PHỤ THUỘC)
-// ===================================================================================
+function analyzeGameTrends(history) {
+  if (!history || history.length < this.config.minHistoryLength) {
+    return { prediction: null, confidence: 0, analysis: 'Insufficient data' };
+  }
 
-// --- Giả lập các lớp phụ thuộc cho Thuật toán 1 để code có thể chạy ---
-class MockModel {
-    async train(data, options) { return { success: true }; }
-    async analyze(data) {
-        const pred = Math.random() > 0.5 ? 'T' : 'X';
-        const conf = 0.5 + Math.random() * 0.2;
-        return { prediction: pred, confidence: conf, modelType: this.constructor.name };
-    }
-}
-class DeepSequencePredictor extends MockModel {}
-class HybridAttentionPredictor extends MockModel {}
-class QuantumInspiredNetwork extends MockModel {}
-class TemporalFusionPredictor extends MockModel {}
-class AdvancedProbabilisticModel extends MockModel {}
-class AnomalyDetectionEngine { analyze(data, history) { return { count: 0, details: [] }; } }
-class RealTimePatternEngine { extract(data, history) { return data.slice(-5); } }
-class WeightOptimizationEngine { calculateNewWeights(metrics, weights) { return weights; } }
-class CrossModelCorrelation { analyze(analysis) { return { correlation: 0.1 }; } }
-class AdvancedTrendEngine { analyze(h, r, p) { return { trend: 'NEUTRAL' }; } }
-class SmartEnsembleEngine {
-    combinePredictions(analysis, trend, weights, threshold) {
-        let taiScore = 0;
-        let xiuScore = 0;
-        for (const modelName in analysis) {
-            if (analysis[modelName] && analysis[modelName].prediction) {
-                if (analysis[modelName].prediction === 'T') {
-                    taiScore += analysis[modelName].confidence * (weights[modelName] || 0.2);
-                } else {
-                    xiuScore += analysis[modelName].confidence * (weights[modelName] || 0.2);
-                }
-            }
-        }
-        const total = taiScore + xiuScore;
-        const finalPred = taiScore > xiuScore ? 'T' : 'X';
-        const finalConf = total > 0 ? Math.max(taiScore, xiuScore) / total : 0;
-        return { recommendation: finalPred, confidence: finalConf };
-    }
-}
-class PredictionStability { assess(pred, history) { return 'STABLE'; } }
-class PerformanceMetricsEngine { calculate(preds) { return { accuracy: 0.5 }; } }
+  // Phân tích nâng cao
+  const enhancedAnalysis = {
+    scorePatterns: detectScorePatterns(history),
+    resultSequences: analyzeResultSequences(history),
+    volatility: calculateMarketVolatility(history),
+    statisticalTrends: calculateStatisticalTrends(history),
+    streakAnalysis: performStreakAnalysis(history)
+  };
 
-class AdvancedTaiXiuPredictor {
-    constructor() {
-        this.historicalData = [];
-        this.realTimeData = [];
-        this.metaData = { lastUpdate: null, dataQuality: 1.0, anomalyCount: 0 };
-        this.models = this.initializeAdvancedModels();
-        this.performanceMetrics = { accuracy: 0, precision: 0, recall: 0, last10Predictions: [] };
-        this.config = {
-            dataWindow: 500,
-            predictionThreshold: 0.72,
-            adaptiveLearningRate: 0.01,
-            ensembleWeights: this.calculateInitialWeights()
-        };
-    }
-    initializeAdvancedModels() {
-        return {
-            deepSequenceModel: new DeepSequencePredictor(),
-            hybridAttentionModel: new HybridAttentionPredictor(),
-            quantumInspiredNetwork: new QuantumInspiredNetwork(),
-            temporalFusionModel: new TemporalFusionPredictor(),
-            probabilisticGraphicalModel: new AdvancedProbabilisticModel()
-        };
-    }
-    calculateInitialWeights() {
-        return {
-            deepSequenceModel: 0.28,
-            hybridAttentionModel: 0.25,
-            quantumInspiredNetwork: 0.22,
-            temporalFusionModel: 0.15,
-            probabilisticGraphicalModel: 0.10
-        };
-    }
-    async updateData(newData) {
-        try {
-            const processedData = this.preprocessData(newData);
-            const anomalyReport = this.detectAnomalies(processedData);
-            this.metaData.anomalyCount += anomalyReport.count;
-            this.updateDataQuality(anomalyReport);
-            this.historicalData = [...this.historicalData, ...processedData].slice(-this.config.dataWindow);
-            this.realTimeData = this.extractRealTimePatterns(processedData);
-            await this.adaptiveModelTraining();
-            this.metaData.lastUpdate = new Date();
-            return { success: true };
-        } catch (error) {
-            console.error("Algo1 Data update failed:", error);
-            return { success: false, error: error.message };
-        }
-    }
-    preprocessData(data) {
-        return data.map(item => {
-            const upper = String(item).toUpperCase();
-            if (upper === 'TAI' || upper === 'TÀI' || upper === 'T') return 'T';
-            if (upper === 'XIU' || upper === 'XỈU' || upper === 'X') return 'X';
-            return null;
-        }).filter(Boolean);
-    }
-    detectAnomalies(data) {
-        if (this.historicalData.length < 15) return { count: 0, details: [] }; // THAY ĐỔI: 50 -> 15
-        return new AnomalyDetectionEngine().analyze(data, this.historicalData);
-    }
-    updateDataQuality(anomalyReport) {
-        if (this.historicalData.length === 0) return;
-        const anomalyRatio = anomalyReport.count / this.historicalData.length;
-        this.metaData.dataQuality = Math.max(0.1, 1 - (anomalyRatio * 2));
-    }
-    extractRealTimePatterns(data) {
-        return new RealTimePatternEngine().extract(data, this.historicalData);
-    }
-    async adaptiveModelTraining() {
-        const trainingData = { historical: this.historicalData, realTime: this.realTimeData, meta: this.metaData };
-        const trainingPromises = Object.values(this.models).map(model =>
-            model.train(trainingData, this.config.adaptiveLearningRate)
-        );
-        await Promise.all(trainingPromises);
-        this.adjustModelWeights();
-    }
-    adjustModelWeights() {
-        this.config.ensembleWeights = new WeightOptimizationEngine().calculateNewWeights(
-            this.performanceMetrics, this.config.ensembleWeights
-        );
-    }
-    async predict() {
-        try {
-            // THAY ĐỔI: Giảm ngưỡng dữ liệu yêu cầu từ 50 xuống 15
-            if (this.historicalData.length < 15) {
-                return { recommendation: null, confidence: 0, error: "Insufficient data" };
-            }
-            const analysisResults = await this.multilayerAnalysis();
-            const trendAnalysis = this.advancedTrendAnalysis();
-            const finalPrediction = this.ensemblePrediction(analysisResults, trendAnalysis);
-            this.recordPredictionPerformance(finalPrediction);
-            return {
-                ...finalPrediction,
-                stability: this.checkPredictionStability(finalPrediction),
-            };
-        } catch (error) {
-            return { recommendation: null, confidence: 0, error: error.message };
-        }
-    }
-    async multilayerAnalysis() {
-        const analysis = {};
-        const analysisPromises = Object.entries(this.models).map(async ([name, model]) => {
-            analysis[name] = await model.analyze({ historical: this.historicalData, realTime: this.realTimeData });
-        });
-        await Promise.all(analysisPromises);
-        analysis.crossModel = new CrossModelCorrelation().analyze(analysis);
-        return analysis;
-    }
-    advancedTrendAnalysis() {
-        return new AdvancedTrendEngine().analyze(this.historicalData, this.realTimeData, this.performanceMetrics);
-    }
-    ensemblePrediction(analysis, trend) {
-        return new SmartEnsembleEngine().combinePredictions(analysis, trend, this.config.ensembleWeights, this.config.predictionThreshold);
-    }
-    checkPredictionStability(prediction) {
-        if (this.performanceMetrics.last10Predictions.length < 5) return 'initializing';
-        return new PredictionStability().assess(prediction, this.performanceMetrics.last10Predictions);
-    }
-    recordPredictionPerformance(prediction) {
-        this.performanceMetrics.last10Predictions = [...this.performanceMetrics.last10Predictions.slice(-9), prediction];
-    }
+  // Tính điểm dự đoán từ các mô hình
+  const predictions = {
+    patternRecognition: patternRecognitionModel(enhancedAnalysis.resultSequences),
+    statisticalPrediction: statisticalPredictionModel(enhancedAnalysis.statisticalTrends),
+    volatilityAdjustment: volatilityAdjustmentModel(enhancedAnalysis.volatility),
+    streakPrediction: streakPredictionModel(enhancedAnalysis.streakAnalysis),
+    scoreBasedPrediction: scoreBasedPredictionModel(enhancedAnalysis.scorePatterns)
+  };
+
+  // Tính toán trọng số động
+  const dynamicWeights = this.config.dynamicWeightAdjustment 
+    ? calculateDynamicWeights(predictions, history) 
+    : this.config;
+
+  // Tổng hợp kết quả
+  const finalPrediction = calculateFinalPrediction(predictions, dynamicWeights);
+
+  return {
+    prediction: finalPrediction.prediction,
+    confidence: finalPrediction.confidence,
+    analysis: {
+      mainReason: finalPrediction.mainReason,
+      detailedAnalysis: enhancedAnalysis,
+      modelContributions: predictions
+    },
+    modelWeights: dynamicWeights
+  };
 }
 
-// ===================================================================================
-// THUẬT TOÁN 2: MULTI-LAYER ANALYSIS PREDICTOR
-// ===================================================================================
+// Các hàm phân tích nâng cao
+function detectScorePatterns(history) {
+  const scores = history.map(r => r.score);
+  const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+  
+  // Phân tích phân phối điểm
+  const scoreDistribution = {
+    taiRange: scores.filter(s => s > 10.5).length / scores.length,
+    xiuRange: scores.filter(s => s < 10.5).length / scores.length,
+    nearThreshold: scores.filter(s => s >= 9.5 && s <= 11.5).length / scores.length
+  };
 
-class StatisticalModel {
-    constructor() { this.taiProb = 0.5; }
-    train(data) { this.taiProb = data.filter(x => x === 'T').length / data.length; }
-    analyze(data) {
-        const last10 = data.slice(-10);
-        const shortTermProb = last10.length > 0 ? last10.filter(x => x === 'T').length / last10.length : 0.5;
-        const combinedProb = (this.taiProb * 0.6) + (shortTermProb * 0.4);
-        return {
-            prediction: combinedProb > 0.5 ? 'T' : 'X',
-            confidence: Math.abs(combinedProb - 0.5) * 2,
-        };
-    }
-}
-class TimeSeriesModel {
-    constructor() { this.patterns = {}; }
-    train(data) {
-        const patterns = {};
-        const len = 3;
-        for (let i = 0; i < data.length - len; i++) {
-            const p = data.slice(i, i + len).join('');
-            const next = data[i + len];
-            if (!patterns[p]) patterns[p] = { T: 0, X: 0 };
-            patterns[p][next]++;
-        }
-        for (const p in patterns) {
-            const total = patterns[p].T + patterns[p].X;
-            patterns[p].T /= total;
-            patterns[p].X /= total;
-        }
-        this.patterns = patterns;
-    }
-    analyze(data) {
-        const len = 3;
-        if (data.length < len) return { prediction: null, confidence: 0 };
-        const lastPattern = data.slice(-len).join('');
-        const pData = this.patterns[lastPattern];
-        if (!pData) return { prediction: null, confidence: 0 };
-        return {
-            prediction: pData.T > pData.X ? 'T' : 'X',
-            confidence: Math.max(pData.T, pData.X),
-        };
-    }
-}
-class NeuralNetwork { // Mock-up
-    analyze(data) {
-        const recentData = data.slice(-20);
-        if (recentData.length === 0) return { prediction: null, confidence: 0 };
-        const ratio = recentData.filter(x => x === 'T').length / recentData.length;
-        const score = 0.5 - ratio; // Mean reversion
-        const prob = 0.5 + score * 0.5;
-        return {
-            prediction: prob > 0.5 ? 'T' : 'X',
-            confidence: Math.abs(score),
-        };
-    }
-    train(data) {}
-}
-class BayesianModel {
-    constructor() { this.priorTai = 0.5; this.conditionalProbs = {}; }
-    train(data) {
-        this.priorTai = data.filter(x => x === 'T').length / data.length;
-    }
-    analyze(data) {
-        if (data.length < 2) return { prediction: null, confidence: 0 };
-        const last = data[data.length - 1];
-        const probT = last === 'T' ? 0.48 : 0.52;
-        return {
-            prediction: probT > 0.5 ? 'T' : 'X',
-            confidence: Math.abs(probT - 0.5) * 2,
-        };
-    }
+  // Phát hiện xu hướng điểm
+  const last10Scores = scores.slice(-10);
+  const scoreTrend = {
+    increasing: last10Scores.filter((s, i) => i > 0 && s > last10Scores[i-1]).length,
+    decreasing: last10Scores.filter((s, i) => i > 0 && s < last10Scores[i-1]).length,
+    stable: last10Scores.filter((s, i) => i > 0 && Math.abs(s - last10Scores[i-1]) < 1).length
+  };
+
+  return {
+    average: avgScore,
+    standardDeviation: calculateStandardDeviation(scores),
+    distribution: scoreDistribution,
+    trend: scoreTrend,
+    recentScores: last10Scores
+  };
 }
 
-class TaiXiuPredictor {
-    constructor() {
-        this.history = [];
-        this.trendWindow = 10;
-        this.models = {
-            statistical: new StatisticalModel(),
-            timeSeries: new TimeSeriesModel(),
-            neural: new NeuralNetwork(),
-            bayesian: new BayesianModel()
-        };
-    }
-    preprocessData(data) {
-        return data.map(item => {
-            const upper = String(item).toUpperCase();
-            if (upper === 'TAI' || upper === 'TÀI' || upper === 'T') return 'T';
-            if (upper === 'XIU' || upper === 'XỈU' || upper === 'X') return 'X';
-            return null;
-        }).filter(Boolean);
-    }
-    updateData(newResults) {
-        const processed = this.preprocessData(newResults);
-        this.history = [...this.history, ...processed].slice(-1000);
-        this.trainModels();
-    }
-    trainModels() {
-        if (this.history.length < 15) return; // THAY ĐỔI: 50 -> 15
-        Object.values(this.models).forEach(model => model.train(this.history));
-    }
-    multilayerAnalysis() {
-        const results = {};
-        for (const name in this.models) {
-            results[name] = this.models[name].analyze(this.history);
-        }
-        return results;
-    }
-    predict() {
-        if (this.history.length < 15) return { prediction: null, confidence: 0 }; // THAY ĐỔI: 50 -> 15
-        const analysis = this.multilayerAnalysis();
-        const predictions = Object.values(analysis);
+function analyzeResultSequences(history) {
+  const results = history.map(r => r.result);
+  const patterns = [];
+  const depth = Math.min(this.config.patternRecognitionDepth, results.length - 1);
 
-        let taiWeight = 0, xiuWeight = 0, totalConfidence = 0;
-        predictions.forEach(p => {
-            if (p.prediction) {
-                const weight = p.confidence;
-                totalConfidence += weight;
-                if (p.prediction === 'T') taiWeight += weight;
-                else xiuWeight += weight;
-            }
-        });
+  // Phát hiện các mẫu lặp
+  for (let i = 0; i <= results.length - depth; i++) {
+    const pattern = results.slice(i, i + depth).join('-');
+    patterns.push(pattern);
+  }
 
-        if (totalConfidence === 0) return { prediction: null, confidence: 0 };
-        const taiProb = taiWeight / totalConfidence;
-        const xiuProb = xiuWeight / totalConfidence;
-        return {
-            prediction: taiProb > xiuProb ? 'T' : 'X',
-            confidence: Math.max(taiProb, xiuProb),
-        };
-    }
+  // Đếm tần suất mẫu
+  const patternCounts = patterns.reduce((acc, pattern) => {
+    acc[pattern] = (acc[pattern] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Tìm mẫu phổ biến nhất
+  const mostCommonPattern = Object.entries(patternCounts)
+    .sort((a, b) => b[1] - a[1])[0];
+
+  // Phân tích chuỗi kết quả
+  const switches = results.slice(1).reduce((count, res, i) => 
+    count + (res !== results[i] ? 1 : 0), 0);
+
+  return {
+    patterns: patternCounts,
+    mostCommonPattern: mostCommonPattern,
+    switchRate: switches / (results.length - 1),
+    currentStreak: calculateCurrentStreak(results),
+    taiXiuRatio: results.filter(r => r === 'Tài').length / results.length
+  };
 }
 
-// ===================================================================================
-// THUẬT TOÁN 3: HEURISTIC & PATTERN PREDICTOR (CẤU TRÚC LẠI THÀNH CLASS)
-// ===================================================================================
+function calculateMarketVolatility(history) {
+  const scores = history.map(r => r.score);
+  const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+  const stdDev = calculateStandardDeviation(scores);
+  
+  // Phân tích biến động gần đây
+  const recentScores = scores.slice(-10);
+  const recentAvg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
+  const recentStdDev = calculateStandardDeviation(recentScores);
+  
+  return {
+    overallVolatility: stdDev / avgScore,
+    recentVolatility: recentStdDev / recentAvg,
+    volatilityChange: (recentStdDev - stdDev) / stdDev,
+    isHighlyVolatile: recentStdDev > 3.5
+  };
+}
 
-class HeuristicPredictor {
-    constructor() {
-        this.history = []; // Lưu trữ { result: 'Tài'/'Xỉu', session: number, totalScore: number }
-        this.modelPredictions = {};
+function calculateStatisticalTrends(history) {
+  const results = history.map(r => r.result);
+  const taiCount = results.filter(r => r === 'Tài').length;
+  const xiuCount = results.length - taiCount;
+  
+  // Phân tích xu hướng theo chu kỳ
+  const cycles = detectCycles(results);
+  
+  return {
+    taiProbability: taiCount / results.length,
+    xiuProbability: xiuCount / results.length,
+    imbalance: (taiCount - xiuCount) / results.length,
+    cycles: cycles,
+    expectedNext: cycles.length > 0 ? predictFromCycles(cycles) : null
+  };
+}
+
+function performStreakAnalysis(history) {
+  const results = history.map(r => r.result);
+  let currentStreak = 1;
+  const currentResult = results[results.length - 1];
+  
+  for (let i = results.length - 2; i >= 0; i--) {
+    if (results[i] === currentResult) currentStreak++;
+    else break;
+  }
+  
+  // Phân tích các chuỗi trong lịch sử
+  const allStreaks = [];
+  let streakCount = 1;
+  
+  for (let i = 1; i < results.length; i++) {
+    if (results[i] === results[i-1]) {
+      streakCount++;
+    } else {
+      allStreaks.push(streakCount);
+      streakCount = 1;
     }
+  }
+  allStreaks.push(streakCount);
+  
+  const avgStreak = allStreaks.reduce((a, b) => a + b, 0) / allStreaks.length;
+  const maxStreak = Math.max(...allStreaks);
+  
+  return {
+    currentStreak: currentStreak,
+    currentResult: currentResult,
+    averageStreak: avgStreak,
+    maxStreak: maxStreak,
+    streakEndProbability: calculateStreakEndProbability(currentStreak, avgStreak, maxStreak),
+    isLongStreak: currentStreak > avgStreak * 1.5
+  };
+}
+
+// Các mô hình dự đoán
+function patternRecognitionModel(sequenceAnalysis) {
+  if (!sequenceAnalysis.mostCommonPattern) {
+    return { prediction: null, confidence: 0, reason: 'No significant patterns detected' };
+  }
+  
+  const patternParts = sequenceAnalysis.mostCommonPattern[0].split('-');
+  const lastResult = sequenceAnalysis.currentStreak.currentResult;
+  const expectedNext = patternParts[patternParts.length - 1];
+  
+  // Dự đoán dựa trên mẫu phổ biến nhất
+  if (sequenceAnalysis.mostCommonPattern[1] >= 2) {
+    const confidence = Math.min(0.8, sequenceAnalysis.mostCommonPattern[1] * 0.2);
+    return {
+      prediction: expectedNext,
+      confidence: confidence,
+      reason: `Detected repeating pattern (${sequenceAnalysis.mostCommonPattern[0]} occurred ${sequenceAnalysis.mostCommonPattern[1]} times)`
+    };
+  }
+  
+  // Dự đoán dựa trên tỷ lệ chuyển đổi
+  if (sequenceAnalysis.switchRate > 0.7) {
+    return {
+      prediction: lastResult === 'Tài' ? 'Xỉu' : 'Tài',
+      confidence: 0.65,
+      reason: `High switch rate detected (${(sequenceAnalysis.switchRate * 100).toFixed(1)}%)`
+    };
+  }
+  
+  return {
+    prediction: null,
+    confidence: 0,
+    reason: 'No clear pattern-based prediction'
+  };
+}
+
+function statisticalPredictionModel(statisticalTrends) {
+  // Dự đoán dựa trên phân phối xác suất
+  const { taiProbability, xiuProbability, imbalance, expectedNext } = statisticalTrends;
+  
+  if (expectedNext) {
+    return {
+      prediction: expectedNext,
+      confidence: 0.7,
+      reason: 'Detected cyclical pattern in results'
+    };
+  }
+  
+  if (Math.abs(imbalance) > 0.3) {
+    const predicted = imbalance > 0 ? 'Xỉu' : 'Tài';
+    return {
+      prediction: predicted,
+      confidence: Math.min(0.8, Math.abs(imbalance) * 1.5),
+      reason: `Significant imbalance detected (${(imbalance * 100).toFixed(1)}% ${imbalance > 0 ? 'Tài' : 'Xỉu'} bias)`
+    };
+  }
+  
+  return {
+    prediction: taiProbability > xiuProbability ? 'Tài' : 'Xỉu',
+    confidence: Math.abs(taiProbability - xiuProbability) * 0.8,
+    reason: `Basic probability (Tài: ${(taiProbability * 100).toFixed(1)}%, Xỉu: ${(xiuProbability * 100).toFixed(1)}%)`
+  };
+}
+
+function volatilityAdjustmentModel(volatilityAnalysis) {
+  // Điều chỉnh dựa trên biến động thị trường
+  if (volatilityAnalysis.isHighlyVolatile) {
+    return {
+      prediction: null,
+      confidence: 0,
+      adjustment: -0.2,
+      reason: 'High volatility market - reducing confidence in all predictions'
+    };
+  }
+  
+  if (volatilityAnalysis.volatilityChange > 0.5) {
+    return {
+      prediction: null,
+      confidence: 0,
+      adjustment: -0.15,
+      reason: 'Increasing volatility - proceeding with caution'
+    };
+  }
+  
+  return {
+    prediction: null,
+    confidence: 0,
+    adjustment: 0.1,
+    reason: 'Stable market conditions - increasing confidence'
+  };
+}
+
+function streakPredictionModel(streakAnalysis) {
+  // Dự đoán dựa trên chuỗi hiện tại
+  const { currentStreak, currentResult, streakEndProbability, isLongStreak } = streakAnalysis;
+  
+  if (isLongStreak && streakEndProbability > this.config.streakBreakThreshold) {
+    return {
+      prediction: currentResult === 'Tài' ? 'Xỉu' : 'Tài',
+      confidence: streakEndProbability * 0.9,
+      reason: `Long streak detected (${currentStreak} ${currentResult}), high break probability (${(streakEndProbability * 100).toFixed(1)}%)`
+    };
+  }
+  
+  return {
+    prediction: currentResult,
+    confidence: (1 - streakEndProbability) * 0.7,
+    reason: `Continuing current streak (${currentStreak} ${currentResult}), low break probability (${(streakEndProbability * 100).toFixed(1)}%)`
+  };
+}
+
+function scoreBasedPredictionModel(scoreAnalysis) {
+  // Dự đoán dựa trên phân tích điểm
+  const { average, distribution, trend } = scoreAnalysis;
+  
+  if (average > 11 && distribution.taiRange > 0.6) {
+    return {
+      prediction: 'Tài',
+      confidence: 0.75,
+      reason: `High average score (${average.toFixed(1)}) with strong Tài tendency (${(distribution.taiRange * 100).toFixed(1)}%)`
+    };
+  }
+  
+  if (average < 9.5 && distribution.xiuRange > 0.6) {
+    return {
+      prediction: 'Xỉu',
+      confidence: 0.75,
+      reason: `Low average score (${average.toFixed(1)}) with strong Xỉu tendency (${(distribution.xiuRange * 100).toFixed(1)}%)`
+    };
+  }
+  
+  if (trend.increasing >= 7) {
+    return {
+      prediction: 'Tài',
+      confidence: 0.65,
+      reason: 'Strong upward score trend'
+    };
+  }
+  
+  if (trend.decreasing >= 7) {
+    return {
+      prediction: 'Xỉu',
+      confidence: 0.65,
+      reason: 'Strong downward score trend'
+    };
+  }
+  
+  return {
+    prediction: average > 10.5 ? 'Tài' : 'Xỉu',
+    confidence: 0.6,
+    reason: `Basic score-based prediction (average: ${average.toFixed(1)})`
+  };
+}
+
+// Các hàm hỗ trợ
+function calculateDynamicWeights(predictions, history) {
+  // Tính toán trọng số động dựa trên hiệu suất lịch sử
+  const performanceRatios = {
+    pattern: evaluateModelPerformance('pattern', history),
+    statistical: evaluateModelPerformance('statistical', history),
+    streak: evaluateModelPerformance('streak', history),
+    score: evaluateModelPerformance('score', history)
+  };
+  
+  // Tính trọng số mới
+  const totalPerformance = Object.values(performanceRatios).reduce((a, b) => a + b, 0);
+  
+  return {
+    patternAnalysisWeight: (performanceRatios.pattern / totalPerformance) * 0.4,
+    statisticalAnalysisWeight: (performanceRatios.statistical / totalPerformance) * 0.3,
+    trendAnalysisWeight: (performanceRatios.streak / totalPerformance) * 0.2,
+    scoreAnalysisWeight: (performanceRatios.score / totalPerformance) * 0.1,
+    volatilityAnalysisWeight: 0.1 // Giữ cố định vì không phải mô hình dự đoán
+  };
+}
+
+function calculateFinalPrediction(predictions, weights) {
+  // Tổng hợp tất cả dự đoán với trọng số
+  let taiScore = 0;
+  let xiuScore = 0;
+  let totalConfidence = 0;
+  const reasons = [];
+  
+  // Thêm các dự đoán từ mô hình
+  if (predictions.patternRecognition.prediction) {
+    const weight = weights.patternAnalysisWeight;
+    if (predictions.patternRecognition.prediction === 'Tài') {
+      taiScore += weight * predictions.patternRecognition.confidence;
+    } else {
+      xiuScore += weight * predictions.patternRecognition.confidence;
+    }
+    totalConfidence += weight * predictions.patternRecognition.confidence;
+    reasons.push(predictions.patternRecognition.reason);
+  }
+  
+  if (predictions.statisticalPrediction.prediction) {
+    const weight = weights.statisticalAnalysisWeight;
+    if (predictions.statisticalPrediction.prediction === 'Tài') {
+      taiScore += weight * predictions.statisticalPrediction.confidence;
+    } else {
+      xiuScore += weight * predictions.statisticalPrediction.confidence;
+    }
+    totalConfidence += weight * predictions.statisticalPrediction.confidence;
+    reasons.push(predictions.statisticalPrediction.reason);
+  }
+  
+  if (predictions.streakPrediction.prediction) {
+    const weight = weights.trendAnalysisWeight;
+    if (predictions.streakPrediction.prediction === 'Tài') {
+      taiScore += weight * predictions.streakPrediction.confidence;
+    } else {
+      xiuScore += weight * predictions.streakPrediction.confidence;
+    }
+    totalConfidence += weight * predictions.streakPrediction.confidence;
+    reasons.push(predictions.streakPrediction.reason);
+  }
+  
+  if (predictions.scoreBasedPrediction.prediction) {
+    const weight = weights.scoreAnalysisWeight;
+    if (predictions.scoreBasedPrediction.prediction === 'Tài') {
+      taiScore += weight * predictions.scoreBasedPrediction.confidence;
+    } else {
+      xiuScore += weight * predictions.scoreBasedPrediction.confidence;
+    }
+    totalConfidence += weight * predictions.scoreBasedPrediction.confidence;
+    reasons.push(predictions.scoreBasedPrediction.reason);
+  }
+  
+  // Áp dụng điều chỉnh biến động
+  const volatilityAdjustment = predictions.volatilityAdjustment.adjustment;
+  totalConfidence = Math.max(0.1, Math.min(0.95, totalConfidence + volatilityAdjustment));
+  
+  // Xác định dự đoán cuối cùng
+  const finalPrediction = taiScore > xiuScore ? 'Tài' : 'Xỉu';
+  const confidenceRatio = Math.abs(taiScore - xiuScore) / (taiScore + xiuScore);
+  const finalConfidence = totalConfidence * (0.5 + confidenceRatio * 0.5);
+  
+  return {
+    prediction: finalPrediction,
+    confidence: finalConfidence,
+    mainReason: reasons.length > 0 ? reasons.join('; ') : 'Combined model prediction',
+    detailedReasons: reasons
+  };
+}
+
+// Hàm tiện ích
+function calculateStandardDeviation(values) {
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  const squareDiffs = values.map(v => Math.pow(v - avg, 2));
+  const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;
+  return Math.sqrt(avgSquareDiff);
+}
+
+function calculateCurrentStreak(results) {
+  if (results.length === 0) return 0;
+  let streak = 1;
+  const lastResult = results[results.length - 1];
+  
+  for (let i = results.length - 2; i >= 0; i--) {
+    if (results[i] === lastResult) streak++;
+    else break;
+  }
+  
+  return streak;
+}
+
+function calculateStreakEndProbability(currentStreak, avgStreak, maxStreak) {
+  // Tính toán xác suất kết thúc chuỗi dựa trên thống kê
+  if (currentStreak <= avgStreak) return 0.3;
+  if (currentStreak >= maxStreak) return 0.9;
+  
+  const excess = currentStreak - avgStreak;
+  const range = maxStreak - avgStreak;
+  return 0.3 + (0.6 * (excess / range));
+}
+
+function detectCycles(results) {
+  // Phát hiện các chu kỳ trong kết quả
+  const maxCycleLength = Math.min(6, Math.floor(results.length / 2));
+  const cycles = [];
+  
+  for (let cycleLen = 2; cycleLen <= maxCycleLength; cycleLen++) {
+    if (results.length < cycleLen * 2) continue;
     
-    updateData(newResults) {
-        const formatted = newResults.map((res, i) => ({
-            result: ['T', 'TÀI', 'TAI'].includes(String(res).toUpperCase()) ? 'Tài' : 'Xỉu',
-            session: this.history.length + i + 1,
-            totalScore: Math.floor(Math.random() * 18) + 3
-        }));
-        this.history = [...this.history, ...formatted];
-    }
-
-    detectStreakAndBreak(history) {
-        if (!history.length) return { streak: 0, currentResult: null, breakProb: 0.0 };
-        let streak = 1;
-        const currentResult = history[history.length - 1].result;
-        for (let i = history.length - 2; i >= 0; i--) {
-            if (history[i].result === currentResult) streak++;
-            else break;
-        }
-        let breakProb = streak >= 6 ? 0.8 : (streak >= 4 ? 0.5 : 0.2);
-        return { streak, currentResult, breakProb };
-    }
-
-    smartBridgeBreak(history) {
-        if (history.length < 5) return { prediction: 0, breakProb: 0.0 };
-        const { streak, currentResult, breakProb } = this.detectStreakAndBreak(history);
-        let prediction = breakProb > 0.5 ? (currentResult === 'Tài' ? 2 : 1) : (currentResult === 'Tài' ? 1 : 2);
-        return { prediction, breakProb };
-    }
+    const lastCycle = results.slice(-cycleLen);
+    const prevCycle = results.slice(-cycleLen * 2, -cycleLen);
     
-    aiHtddLogic(history) {
-        if(history.length === 0) return { prediction: 'Tài' };
-        const { streak, currentResult } = this.detectStreakAndBreak(history);
-        if (streak >= 2 && streak <= 4) return { prediction: currentResult };
-        if (history.length >= 3) {
-            const last3 = history.slice(-3).map(h => h.result);
-            if (last3.join(',') === 'Tài,Xỉu,Tài') return { prediction: 'Xỉu' };
-            if (last3.join(',') === 'Xỉu,Tài,Xỉu') return { prediction: 'Tài' };
-        }
-        return { prediction: history[history.length - 1].result === 'Tài' ? 'Xỉu' : 'Tài' };
+    if (JSON.stringify(lastCycle) === JSON.stringify(prevCycle)) {
+      cycles.push({
+        length: cycleLen,
+        pattern: lastCycle,
+        occurrences: 2
+      });
     }
-
-    predict() {
-        if (this.history.length < 5) return { prediction: null, confidence: 0.5 };
-
-        const bridgePred = this.smartBridgeBreak(this.history);
-        const aiPred = this.aiHtddLogic(this.history);
-
-        let taiScore = 0, xiuScore = 0;
-        const weights = { bridge: 0.6, ai: 0.4 };
-
-        if (bridgePred.prediction === 1) taiScore += weights.bridge;
-        else if (bridgePred.prediction === 2) xiuScore += weights.bridge;
-        
-        if (aiPred.prediction === 'Tài') taiScore += weights.ai;
-        else xiuScore += weights.ai;
-        
-        const finalPrediction = taiScore > xiuScore ? 'Tài' : 'Xỉu';
-        const totalScore = taiScore + xiuScore;
-        const confidence = totalScore > 0 ? Math.max(taiScore, xiuScore) / totalScore : 0.5;
-
-        return {
-            prediction: finalPrediction.startsWith('T') ? 'T' : 'X',
-            confidence: confidence,
-        };
-    }
+  }
+  
+  return cycles;
 }
 
-// ===================================================================================
-// MASTER PREDICTOR: LỚP TỔNG HỢP CẢ 3 THUẬT TOÁN
-// ===================================================================================
-class MasterPredictor {
-    constructor() {
-        this.history = [];
-        this.predictor1 = new AdvancedTaiXiuPredictor();
-        this.predictor2 = new TaiXiuPredictor();
-        this.predictor3 = new HeuristicPredictor();
-
-        this.weights = {
-            p1: 0.4, 
-            p2: 0.3, 
-            p3: 0.3
-        };
-    }
-    
-    async updateData(newData) {
-        // Bỏ console.log để đỡ rối log
-        this.history = [...this.history, ...newData];
-        await Promise.all([
-            this.predictor1.updateData(newData),
-            this.predictor2.updateData(newData),
-            this.predictor3.updateData(newData)
-        ]);
-    }
-
-    normalizePrediction(pred, source) {
-        if (!pred || pred.prediction === null) {
-             return { prediction: null, confidence: 0, source };
-        }
-        let result = (pred.prediction || pred.recommendation || '').toUpperCase();
-        if(result.startsWith('T')) result = 'T';
-        else if(result.startsWith('X')) result = 'X';
-        else return { prediction: null, confidence: 0, source };
-        return { prediction: result, confidence: pred.confidence || 0.5, source };
-    }
-
-    async predict() {
-        // THAY ĐỔI: Giảm ngưỡng dữ liệu yêu cầu từ 50 xuống 15
-        if (this.history.length < 15) {
-            const message = `Không đủ dữ liệu (${this.history.length}/15). Cần thêm dữ liệu để dự đoán.`;
-            return { prediction: null, confidence: 0, reason: message };
-        }
-
-        const [res1, res2, res3] = await Promise.all([
-            this.predictor1.predict(),
-            this.predictor2.predict(),
-            this.predictor3.predict()
-        ]);
-        
-        const p1 = this.normalizePrediction(res1, 'AdvancedAI');
-        const p2 = this.normalizePrediction(res2, 'MultiLayer');
-        const p3 = this.normalizePrediction(res3, 'Heuristic');
-
-        let taiScore = 0;
-        let xiuScore = 0;
-        
-        if (p1.prediction === 'T') taiScore += p1.confidence * this.weights.p1;
-        else if (p1.prediction === 'X') xiuScore += p1.confidence * this.weights.p1;
-        
-        if (p2.prediction === 'T') taiScore += p2.confidence * this.weights.p2;
-        else if (p2.prediction === 'X') xiuScore += p2.confidence * this.weights.p2;
-        
-        if (p3.prediction === 'T') taiScore += p3.confidence * this.weights.p3;
-        else if (p3.prediction === 'X') xiuScore += p3.confidence * this.weights.p3;
-
-        const finalPrediction = taiScore > xiuScore ? 'Tài' : 'Xỉu';
-        const totalScore = taiScore + xiuScore;
-        const confidence = totalScore > 0 ? Math.max(taiScore, xiuScore) / totalScore : 0.5;
-
-        const reason = `Tổng hợp điểm: Tài (${taiScore.toFixed(3)}) - Xỉu (${xiuScore.toFixed(3)}).`;
-        
-        return {
-            prediction: finalPrediction,
-            confidence: confidence,
-            reason: reason,
-            details: { p1, p2, p3 }
-        };
-    }
+function predictFromCycles(cycles) {
+  // Dự đoán từ chu kỳ được phát hiện
+  const longestCycle = cycles.sort((a, b) => b.length - a.length)[0];
+  return longestCycle.pattern[0]; // Trả về phần tử đầu tiên của chu kỳ
 }
 
-// THÊM ĐOẠN NÀY VÀO CUỐI FILE
+function evaluateModelPerformance(modelName, history) {
+  // Đánh giá hiệu suất mô hình dựa trên lịch sử
+  // (Triển khai logic đánh giá hiệu suất thực tế)
+  return 1.0; // Tạm thời trả về 1.0 cho tất cả mô hình
+}
+
+// API chính
+function predictTaiXiu(history) {
+  try {
+    // Giới hạn lịch sử để tối ưu hiệu suất
+    const limitedHistory = history.slice(-this.config.maxHistoryLength);
+    
+    // Phân tích và dự đoán
+    const analysisResult = this.analyzeGameTrends(limitedHistory);
+    
+    // Lưu trữ kết quả để theo dõi hiệu suất
+    this.storePredictionResult(analysisResult);
+    
+    return {
+      success: true,
+      prediction: analysisResult.prediction,
+      confidence: analysisResult.confidence,
+      analysis: analysisResult.analysis,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('Prediction error:', error);
+    return {
+      success: false,
+      error: error.message,
+      fallbackPrediction: Math.random() < 0.5 ? 'Tài' : 'Xỉu',
+      confidence: 0.5,
+      timestamp: new Date().toISOString()
+    };
+  }
+}
+
+// Xuất module
 module.exports = {
-    MasterPredictor,
-    AdvancedTaiXiuPredictor,
-    TaiXiuPredictor,
-    HeuristicPredictor
+  predictTaiXiu,
+  config: predictionModel.config,
+  analyzeGameTrends
 };
