@@ -1,4 +1,5 @@
 // server.js
+
 const WebSocket = require('ws');
 const express = require('express');
 const cors = require('cors');
@@ -93,8 +94,10 @@ function connectWebSocket() {
                 if (lastPrediction && lastPrediction !== "?") {
                     if (lastPrediction === result) {
                         apiResponseData.tong_dung++;
+                        correctnessStatus = "ĐÚNG";
                     } else {
                         apiResponseData.tong_sai++;
+                        correctnessStatus = "SAI";
                     }
                 }
 
@@ -105,21 +108,22 @@ function connectWebSocket() {
                     session: currentSessionId, d1, d2, d3, 
                     totalScore: total, result, 
                     prediction: lastPrediction,
-                    correctness: lastPrediction === result ? "ĐÚNG" : "SAI" 
+                    correctness: correctnessStatus 
                 };
                 fullHistory.push(historyEntry);
                 if (fullHistory.length > MAX_HISTORY_SIZE) fullHistory.shift();
-
-                const algoResultFormat = result === 'Tài' ? 'T' : 'X';
-                await predictor.updateData([algoResultFormat]);
                 
+                // Cập nhật thuật toán với dữ liệu mới (điểm và kết quả)
+                await predictor.updateData({ score: total, result: result });
+                
+                // Lấy dự đoán mới từ thuật toán
                 const predictionResult = await predictor.predict();
                 
                 let finalPrediction = "?";
                 let predictionConfidence = "0%";
                 
                 if (predictionResult && predictionResult.prediction) {
-                    finalPrediction = predictionResult.prediction;
+                    finalPrediction = predictionResult.prediction; // Sử dụng trực tiếp dự đoán từ thuật toán
                     predictionConfidence = `${(predictionResult.confidence * 100).toFixed(0)}%`;
                 }
 
@@ -137,7 +141,7 @@ function connectWebSocket() {
                 lastPrediction = finalPrediction;
                 currentSessionId = null;
                 
-                console.log(`Phiên #${apiResponseData.phien}: ${apiResponseData.tong} (${result}) | Dự đoán: ${finalPrediction} | Tin cậy: ${apiResponseData.do_tin_cay} | Tỷ lệ thắng: ${apiResponseData.ty_le_thang_lich_su}`);
+                console.log(`Phiên #${apiResponseData.phien}: ${apiResponseData.tong} (${result}) | Dự đoán mới: ${finalPrediction} | Tin cậy: ${apiResponseData.do_tin_cay} | Tỷ lệ thắng: ${apiResponseData.ty_le_thang_lich_su}`);
             }
         } catch (e) {
             console.error('[❌] Lỗi xử lý message:', e.message);
