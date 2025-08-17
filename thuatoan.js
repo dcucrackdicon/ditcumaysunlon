@@ -1,8 +1,9 @@
 /**
  * thuatoan.js
- * Phiên bản "Đảo Ngược".
- * Thuật toán sẽ chờ đủ 5 phiên và sau đó luôn dự đoán ngược lại
- * kết quả của phiên gần nhất (Tài -> Xỉu, Xỉu -> Tài).
+ * Phiên bản "Bắt Cầu Thông Minh".
+ * Ưu tiên 1: Bắt cầu bệt (3+ phiên giống nhau).
+ * Ưu tiên 2: Bắt cầu 1-1 (xen kẽ).
+ * Mặc định: Đảo ngược kết quả phiên trước.
  */
 
 // --- CÁC HÀM PHÂN TÍCH (Không được sử dụng trong phiên bản này) ---
@@ -58,13 +59,9 @@ function analyzePatterns(history, patternLength = 3) {
 class MasterPredictor {
     constructor() {
         this.history = [];
-        this.MAX_HISTORY_SIZE = 200; // Giới hạn lịch sử để tối ưu bộ nhớ
+        this.MAX_HISTORY_SIZE = 200;
     }
 
-    /**
-     * Cập nhật lịch sử với kết quả của phiên vừa kết thúc.
-     * @param {Object} newResult - Dữ liệu phiên mới, ví dụ: { score: 12, result: 'Tài' }
-     */
     async updateData(newResult) {
         const formattedResult = {
             totalScore: newResult.score,
@@ -72,16 +69,11 @@ class MasterPredictor {
         };
         this.history.push(formattedResult);
 
-        // Giữ cho lịch sử không quá dài
         if (this.history.length > this.MAX_HISTORY_SIZE) {
             this.history.shift();
         }
     }
 
-    /**
-     * Thực hiện dự đoán cho phiên tiếp theo.
-     * @returns {Promise<Object>} - Đối tượng dự đoán, ví dụ: { prediction: 'Xỉu', confidence: 0.85, reason: '...' }
-     */
     async predict() {
         // BƯỚC 1: KIỂM TRA ĐIỀU KIỆN (Yêu cầu 5 phiên)
         if (this.history.length < 5) {
@@ -92,26 +84,37 @@ class MasterPredictor {
             };
         }
 
-        // BƯỚC 2: THỰC HIỆN DỰ ĐOÁN "ĐẢO NGƯỢC"
-        // Lấy kết quả của phiên gần nhất.
-        const lastResult = this.history[this.history.length - 1].result;
+        // Lấy 3 kết quả gần nhất để phân tích cầu
+        const last3Results = this.history.slice(-3).map(h => h.result);
+        const last = last3Results[2];
+        const secondLast = last3Results[1];
+        const thirdLast = last3Results[0];
 
-        // Đảo ngược kết quả đó để ra dự đoán mới.
-        const prediction = lastResult === 'Tài' ? 'Xỉu' : 'Tài';
+        // --- ƯU TIÊN 1: KIỂM TRA CẦU BỆT ---
+        if (last === secondLast && secondLast === thirdLast) {
+            const prediction = last; // Đi theo cầu
+            const confidence = 0.85; // Độ tin cậy cao khi có cầu bệt
+            const reason = `Phát hiện cầu bệt ${prediction} (3+ phiên), đi theo cầu.`;
+            return { prediction, confidence, reason };
+        }
 
-        // Đặt một độ tin cậy cố định cho chiến lược này.
-        const confidence = 0.80; // 80%
+        // --- ƯU TIÊN 2: KIỂM TRA CẦU 1-1 ---
+        // Ví dụ: Tài - Xỉu - Tài. (last !== secondLast && last === thirdLast)
+        if (last !== secondLast && last === thirdLast) {
+            const prediction = secondLast; // Dự đoán kết quả tiếp theo để tạo thành chuỗi 1-1
+            const confidence = 0.80; // Độ tin cậy cao
+            const reason = `Phát hiện cầu 1-1 (${thirdLast}-${secondLast}-${last}), đi theo cầu.`;
+            return { prediction, confidence, reason };
+        }
 
-        const reason = `Dự đoán đảo ngược kết quả phiên trước (${lastResult} -> ${prediction}).`;
-
-        // BƯỚC 3: TRẢ VỀ KẾT QUẢ
-        return {
-            prediction: prediction,
-            confidence: confidence,
-            reason: reason
-        };
+        // --- MẶC ĐỊNH: ĐẢO NGƯỢC KẾT QUẢ ---
+        // Nếu không có cầu bệt hay cầu 1-1 rõ ràng, sẽ dùng logic này.
+        const prediction = last === 'Tài' ? 'Xỉu' : 'Tài';
+        const confidence = 0.65; // Độ tin cậy thấp hơn vì không có cầu rõ ràng
+        const reason = `Không có cầu rõ ràng, dự đoán đảo ngược kết quả phiên trước.`;
+        
+        return { prediction, confidence, reason };
     }
 }
 
-// Export class để server.js có thể require()
 module.exports = { MasterPredictor };
