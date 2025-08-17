@@ -1,8 +1,10 @@
 /**
  * thuatoan.js
- * Phiên bản "Bắt Cầu Toàn Diện".
- * Bổ sung cầu 1-2 lặp lại và cầu gánh 2-1-2.
- * Bắt đầu dự đoán từ phiên 5.
+ * Phiên bản "Bắt Cầu Thông Minh & Ngẫu Nhiên".
+ * Ưu tiên 1: Bắt cầu bệt dài (3+).
+ * Ưu tiên 2: Bắt cầu 1-1.
+ * Ưu tiên 3: Bắt cầu bệt non (2).
+ * Mặc định: DỰ ĐOÁN NGẪU NHIÊN.
  */
 
 // --- CÁC HÀM PHÂN TÍCH (Không thay đổi) ---
@@ -81,57 +83,41 @@ class MasterPredictor {
             };
         }
 
-        const r = this.history.map(h => h.result);
-        const r1 = r[r.length - 1], r2 = r[r.length - 2], r3 = r[r.length - 3];
-        const r4 = r[r.length - 4], r5 = r[r.length - 5], r6 = r[r.length - 6];
+        const last = this.history[this.history.length - 1].result;
+        const secondLast = this.history[this.history.length - 2].result;
+        const thirdLast = this.history[this.history.length - 3].result;
 
-        // --- ƯU TIÊN 1: CÁC CẦU ĐẶC BIỆT ---
-        if (r.length >= 6) {
-            // Cầu 3-3: (VD: T-T-T-X-X-X -> Dự đoán T)
-            if (r1 === r2 && r2 === r3 && r4 === r5 && r5 === r6 && r1 !== r4) {
-                 return { prediction: r4, confidence: 0.88, reason: `Phát hiện cầu 3-3, bẻ cầu.` };
-            }
-            // MỚI: Cầu 1-2 lặp lại (VD: T-XX-T-XX -> Dự đoán T)
-            if (r1 === r2 && r1 !== r3 && r4 === r5 && r4 !== r6 && r3 === r6) {
-                return { prediction: r3, confidence: 0.87, reason: `Phát hiện cầu 1-2 lặp lại, theo cầu.`};
-            }
-        }
-        
-        if (r.length >= 5) {
-            // Cầu gánh 2-1-1-2
-            if (r1 === r4 && r2 === r3 && r1 !== r2 && r4 !== r5) {
-                 return { prediction: r1, confidence: 0.86, reason: `Phát hiện cầu gánh 2-1-1-2, theo đối xứng.` };
-            }
-            // MỚI: Cầu gánh 2-1-2 (VD: T-T-X-T -> Dự đoán T)
-            if (r1 === r4 && r3 === r1 && r3 !== r2) {
-                return { prediction: r1, confidence: 0.85, reason: `Phát hiện cầu gánh 2-1-2, theo đối xứng.`};
-            }
+        // --- ƯU TIÊN 1: KIỂM TRA CẦU BỆT DÀI (3+ phiên) ---
+        if (last === secondLast && secondLast === thirdLast) {
+            return {
+                prediction: last,
+                confidence: 0.85,
+                reason: `Phát hiện cầu bệt dài ${last} (3+ phiên), đi theo cầu.`
+            };
         }
 
-        // Cầu 2-2
-        if (r1 === r2 && r3 === r4 && r1 !== r3) {
-             return { prediction: r3, confidence: 0.82, reason: `Phát hiện cầu 2-2, bẻ cầu.` };
-        }
-        
-        // --- ƯU TIÊN 2: CÁC CẦU CƠ BẢN ---
-        // Cầu bệt dài (3+ phiên)
-        if (r1 === r2 && r2 === r3) {
-            return { prediction: r1, confidence: 0.85, reason: `Phát hiện cầu bệt dài ${r1}, đi theo cầu.` };
+        // --- ƯU TIÊN 2: KIỂM TRA CẦU 1-1 ---
+        if (last !== secondLast && last === thirdLast) {
+            return {
+                prediction: secondLast,
+                confidence: 0.80,
+                reason: `Phát hiện cầu 1-1 (${thirdLast}-${secondLast}-${last}), đi theo cầu.`
+            };
         }
 
-        // Cầu 1-1
-        if (r1 !== r2 && r1 === r3) {
-            return { prediction: r2, confidence: 0.80, reason: `Phát hiện cầu 1-1, đi theo cầu.` };
+        // --- ƯU TIÊN 3: KIỂM TRA CẦU BỆT NON (2 phiên) ---
+        if (last === secondLast && last !== thirdLast) {
+            return {
+                prediction: last,
+                confidence: 0.75,
+                reason: `Phát hiện cầu bệt non ${last} (2 phiên), đi theo cầu.`
+            };
         }
 
-        // Cầu bệt non (2 phiên)
-        if (r1 === r2 && r1 !== r3) {
-            return { prediction: r1, confidence: 0.75, reason: `Phát hiện cầu bệt non ${r1}, đi theo cầu.` };
-        }
-
-        // --- MẶC ĐỊNH: DỰ ĐOÁN NGẪU NHIÊN ---
+        // --- MẶC ĐỊNH MỚI: DỰ ĐOÁN NGẪU NHIÊN ---
+        // Nếu không có cầu rõ ràng, tạo một dự đoán ngẫu nhiên.
         const prediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
-        const confidence = 0.50;
+        const confidence = 0.50; // Độ tin cậy 50/50 vì là ngẫu nhiên
         const reason = `Không có cầu rõ ràng, dự đoán ngẫu nhiên là ${prediction}.`;
         
         return { prediction, confidence, reason };
