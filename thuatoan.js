@@ -1,66 +1,19 @@
 /**
- * thuatoan.js
- * Phiên bản "Bắt Cầu Nâng Cao".
- * Ưu tiên 1: Các cầu đặc biệt dài (3-3, 2-1-1-2, 2-2).
- * Ưu tiên 2: Bắt cầu bệt dài (3+).
- * Ưu tiên 3: Bắt cầu 1-1.
- * Ưu tiên 4: Bắt cầu bệt non (2).
- * Mặc định: DỰ ĐOÁN NGẪU NHIÊN.
+ * thuatoan.js - Phiên bản "Hệ Thống Chuyên Gia"
+ *
+ * Thuật toán sử dụng phương pháp đa luồng phân tích và hệ thống điểm để đưa ra dự đoán.
+ * 1. Phân tích Xu hướng (Bắt bệt).
+ * 2. Phân tích Thống kê (Nhìn tổng quan).
+ * 3. Phân tích Mẫu hình (Tìm quy luật lặp lại).
+ *
+ * Kết quả được tổng hợp, nếu chênh lệch không đủ lớn, thuật toán sẽ bỏ qua.
  */
-
-// --- CÁC HÀM PHÂN TÍCH (Không thay đổi) ---
-function analyzeStreak(history) {
-    if (history.length === 0) return { streak: 0, currentResult: null, breakProb: 0.0 };
-    let streak = 1;
-    const currentResult = history[history.length - 1].result;
-    for (let i = history.length - 2; i >= 0; i--) {
-        if (history[i].result === currentResult) streak++; else break;
-    }
-    let breakProb = 0.0;
-    if (streak >= 7) breakProb = 0.90;
-    else if (streak >= 5) breakProb = 0.75 + (streak - 5) * 0.07;
-    else if (streak >= 3) breakProb = 0.40 + (streak - 3) * 0.1;
-    return { streak, currentResult, breakProb };
-}
-function analyzeStatistics(history) {
-    const results = history.map(h => h.result);
-    const scores = history.map(h => h.totalScore);
-    const taiCount = results.filter(r => r === 'Tài').length;
-    const xiuCount = results.length - taiCount;
-    const taiRatio = taiCount / results.length;
-    const switches = results.slice(1).reduce((count, curr, idx) => count + (curr !== results[idx] ? 1 : 0), 0);
-    const switchRate = results.length > 1 ? switches / (results.length - 1) : 0;
-    const avgScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    const scoreStdDev = Math.sqrt(scores.map(x => Math.pow(x - avgScore, 2)).reduce((a, b) => a + b) / scores.length);
-    return { taiCount, xiuCount, taiRatio, imbalance: Math.abs(taiCount - xiuCount) / results.length, switchRate, avgScore, scoreStdDev };
-}
-function analyzePatterns(history, patternLength = 3) {
-    const results = history.map(h => h.result);
-    if (results.length < patternLength + 1) return { prediction: null, confidence: 0 };
-    const lastPattern = results.slice(-patternLength).join('-');
-    const occurrences = { 'Tài': 0, 'Xỉu': 0, 'total': 0 };
-    for (let i = 0; i <= results.length - (patternLength + 1); i++) {
-        const currentSlice = results.slice(i, i + patternLength).join('-');
-        if (currentSlice === lastPattern) {
-            const nextResult = results[i + patternLength];
-            occurrences[nextResult]++;
-            occurrences.total++;
-        }
-    }
-    if (occurrences.total < 2) return { prediction: null, confidence: 0, reason: "Không tìm thấy mẫu hình lặp lại đủ mạnh." };
-    const taiProb = occurrences['Tài'] / occurrences.total;
-    const xiuProb = occurrences['Xỉu'] / occurrences.total;
-    const prediction = taiProb > xiuProb ? 'Tài' : 'Xỉu';
-    const confidence = Math.max(taiProb, xiuProb);
-    return { prediction, confidence, reason: `Mẫu [${lastPattern}] đã xuất hiện ${occurrences.total} lần, thường dẫn đến ${prediction} (${(confidence * 100).toFixed(0)}%)` };
-}
-
-// --- CLASS DỰ ĐOÁN CHÍNH ---
 
 class MasterPredictor {
     constructor() {
         this.history = [];
-        this.MAX_HISTORY_SIZE = 200;
+        this.MAX_HISTORY_SIZE = 200; // Tăng lịch sử để phân tích mẫu hình tốt hơn
+        this.MIN_HISTORY_FOR_PREDICTION = 20; // Cần ít nhất 20 phiên để có dữ liệu thống kê
     }
 
     async updateData(newResult) {
@@ -75,88 +28,134 @@ class MasterPredictor {
         }
     }
 
+    /**
+     * Chuyên gia 1: Phân tích xu hướng ngắn hạn (Bệt)
+     */
+    analyzeTrend(history) {
+        const lastResult = history[history.length - 1].result;
+        let streak = 0;
+        for (let i = history.length - 1; i >= 0; i--) {
+            if (history[i].result === lastResult) {
+                streak++;
+            } else {
+                break;
+            }
+        }
+
+        if (streak >= 3) {
+            // Dây bệt càng dài, phiếu càng mạnh, nhưng giảm dần sau 7
+            const weight = Math.max(0, 1 - (streak - 7) * 0.15); 
+            return { prediction: lastResult, score: streak * 0.2 * weight, reason: `Bệt ${streak}` };
+        }
+        return { prediction: null, score: 0, reason: "Không có bệt rõ" };
+    }
+
+    /**
+     * Chuyên gia 2: Phân tích thống kê tổng quan
+     */
+    analyzeStats(history, lookback = 50) {
+        const recentHistory = history.slice(-lookback);
+        if (recentHistory.length < lookback) {
+             return { prediction: null, score: 0, reason: "Chưa đủ dữ liệu thống kê" };
+        }
+
+        const taiCount = recentHistory.filter(h => h.result === 'Tài').length;
+        const taiRatio = taiCount / recentHistory.length;
+
+        const imbalance = Math.abs(taiRatio - 0.5); // Độ mất cân bằng
+        
+        if (imbalance > 0.15) { // Nếu 1 bên chiếm trên 65%
+            const dominantResult = taiRatio > 0.5 ? 'Tài' : 'Xỉu';
+            return { prediction: dominantResult, score: imbalance * 2, reason: `${dominantResult} chiếm ${(taiRatio*100).toFixed(0)}%` };
+        }
+        return { prediction: null, score: 0, reason: "Cân bằng" };
+    }
+
+    /**
+     * Chuyên gia 3: Phân tích mẫu hình lịch sử
+     */
+    analyzePatterns(history, patternLength = 3) {
+        const results = history.map(h => h.result);
+        if (results.length < patternLength * 2) {
+             return { prediction: null, score: 0, reason: "Chưa đủ dữ liệu mẫu hình" };
+        }
+
+        const lastPattern = results.slice(-patternLength).join('-');
+        const occurrences = { 'Tài': 0, 'Xỉu': 0 };
+        let totalFound = 0;
+
+        for (let i = 0; i <= results.length - (patternLength + 1); i++) {
+            const currentSlice = results.slice(i, i + patternLength).join('-');
+            if (currentSlice === lastPattern) {
+                const nextResult = results[i + patternLength];
+                occurrences[nextResult]++;
+                totalFound++;
+            }
+        }
+
+        if (totalFound < 3) { // Yêu cầu mẫu hình xuất hiện ít nhất 3 lần
+            return { prediction: null, score: 0, reason: `Mẫu [${lastPattern}] hiếm gặp` };
+        }
+
+        const taiProb = occurrences['Tài'] / totalFound;
+        const xiuProb = occurrences['Xỉu'] / totalFound;
+        const confidence = Math.max(taiProb, xiuProb);
+
+        if (confidence > 0.70) { // Yêu cầu tỉ lệ trên 70%
+            const prediction = taiProb > xiuProb ? 'Tài' : 'Xỉu';
+            return { prediction, score: confidence * 1.5, reason: `Mẫu [${lastPattern}] -> ${prediction} (${(confidence * 100).toFixed(0)}%)` };
+        }
+        return { prediction: null, score: 0, reason: `Mẫu [${lastPattern}] không rõ ràng` };
+    }
+
     async predict() {
-        // Yêu cầu tối thiểu 7 phiên để phân tích các cầu dài
-        if (this.history.length < 7) {
+        if (this.history.length < this.MIN_HISTORY_FOR_PREDICTION) {
             return {
                 prediction: "?",
                 confidence: 0,
-                reason: `Đang chờ đủ 7 phiên để bắt đầu. Hiện có: ${this.history.length} phiên.`
+                reason: `Đang chờ đủ ${this.MIN_HISTORY_FOR_PREDICTION} phiên để phân tích. Hiện có: ${this.history.length}.`
             };
         }
 
-        // Lấy lịch sử kết quả gần nhất để phân tích
-        const r = this.history.map(h => h.result);
-        const r1 = r[r.length - 1]; // Gần nhất
-        const r2 = r[r.length - 2];
-        const r3 = r[r.length - 3];
-        const r4 = r[r.length - 4];
-        const r5 = r[r.length - 5];
-        const r6 = r[r.length - 6];
+        // Gọi 3 chuyên gia
+        const trendAnalysis = this.analyzeTrend(this.history);
+        const statsAnalysis = this.analyzeStats(this.history);
+        const patternAnalysis = this.analyzePatterns(this.history);
 
-        // --- ƯU TIÊN 1: CÁC CẦU ĐẶC BIỆT (Dài và hiếm, độ chính xác cao) ---
-
-        // Cầu 3-3: (VD: T-T-T-X-X-X -> Dự đoán T)
-        if (r1 === r2 && r2 === r3 && r4 === r5 && r5 === r6 && r1 !== r4) {
-             return {
-                prediction: r4,
-                confidence: 0.88,
-                reason: `Phát hiện cầu 3-3 (${r6}${r5}${r4}-${r3}${r2}${r1}), bẻ cầu.`
-            };
-        }
+        // Tổng hợp điểm
+        let taiScore = 0;
+        let xiuScore = 0;
+        const analyses = [trendAnalysis, statsAnalysis, patternAnalysis];
         
-        // Cầu 2-1-1-2: (VD: T-T-X-X-T -> Dự đoán T để thành T-T-X-X-T-T)
-        // Đây là dạng cầu gánh/đối xứng
-        if (r1 === r4 && r2 === r3 && r1 !== r2 && r4 !== r5) {
-             return {
-                prediction: r1,
-                confidence: 0.86,
-                reason: `Phát hiện cầu gánh 2-1-1-2 (${r5}${r4}-${r3}${r2}-${r1}...), theo đối xứng.`
-            };
-        }
+        analyses.forEach(analysis => {
+            if (analysis.prediction === 'Tài') {
+                taiScore += analysis.score;
+            } else if (analysis.prediction === 'Xỉu') {
+                xiuScore += analysis.score;
+            }
+        });
 
-        // Cầu 2-2: (VD: T-T-X-X -> Dự đoán T)
-        if (r1 === r2 && r3 === r4 && r1 !== r3) {
-             return {
-                prediction: r3,
-                confidence: 0.82,
-                reason: `Phát hiện cầu 2-2 (${r4}${r3}-${r2}${r1}), bẻ cầu.`
-            };
-        }
+        // Tạo lý do tổng hợp
+        const reason = `Lý do: [Xu hướng: ${trendAnalysis.reason}] | [Thống kê: ${statsAnalysis.reason}] | [Mẫu hình: ${patternAnalysis.reason}]`;
         
-        // --- ƯU TIÊN 2: CẦU BỆT DÀI (3+ phiên) ---
-        if (r1 === r2 && r2 === r3) {
-            return {
-                prediction: r1,
-                confidence: 0.85,
-                reason: `Phát hiện cầu bệt dài ${r1} (3+ phiên), đi theo cầu.`
-            };
+        const totalScore = taiScore + xiuScore;
+        if (totalScore === 0) {
+            return { prediction: "?", confidence: 0, reason: "Các chuyên gia không có ý kiến, nên bỏ qua." };
         }
 
-        // --- ƯU TIÊN 3: CẦU 1-1 ---
-        if (r1 !== r2 && r1 === r3) {
-            return {
-                prediction: r2,
-                confidence: 0.80,
-                reason: `Phát hiện cầu 1-1 (${r3}-${r2}-${r1}), đi theo cầu.`
-            };
+        const prediction = taiScore > xiuScore ? 'Tài' : 'Xỉu';
+        const confidence = Math.abs(taiScore - xiuScore) / totalScore;
+
+        // Chỉ dự đoán nếu độ tin cậy (sự đồng thuận) đủ lớn
+        if (confidence < 0.25) {
+            return { prediction: "?", confidence: 0, reason: `Điểm quá cân bằng (Tài ${taiScore.toFixed(2)} - Xỉu ${xiuScore.toFixed(2)}), nên bỏ qua.` };
         }
 
-        // --- ƯU TIÊN 4: CẦU BỆT NON (2 phiên) ---
-        if (r1 === r2 && r1 !== r3) {
-            return {
-                prediction: r1,
-                confidence: 0.75,
-                reason: `Phát hiện cầu bệt non ${r1} (2 phiên), đi theo cầu.`
-            };
-        }
-
-        // --- MẶC ĐỊNH: DỰ ĐOÁN NGẪU NHIÊN ---
-        const prediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
-        const confidence = 0.50; // Độ tin cậy 50/50 vì là ngẫu nhiên
-        const reason = `Không có cầu rõ ràng, dự đoán ngẫu nhiên là ${prediction}.`;
-        
-        return { prediction, confidence, reason };
+        return {
+            prediction,
+            confidence: Math.min(0.95, confidence * 1.2), // Chuẩn hóa confidence
+            reason: `Dự đoán: ${prediction}. Điểm: (Tài ${taiScore.toFixed(2)} - Xỉu ${xiuScore.toFixed(2)}). ${reason}`
+        };
     }
 }
 
