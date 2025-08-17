@@ -1,5 +1,4 @@
 // server.js
-
 const WebSocket = require('ws');
 const express = require('express');
 const cors = require('cors');
@@ -8,12 +7,6 @@ const { MasterPredictor } = require('./thuatoan.js');
 const app = express();
 app.use(cors());
 const PORT = process.env.PORT || 5000;
-
-// =========================================================
-// == BIẾN CHO CHẾ ĐỘ LẬT KÈO ==
-let isReversedMode = false;      // true: đang lật kèo, false: chế độ thường
-let consecutiveLosses = 0;       // Đếm số lần thua liên tiếp
-// =========================================================
 
 let apiResponseData = {
     id: "@ghetvietcode - @tranbinh012 - @Phucdzvl2222",
@@ -100,27 +93,10 @@ function connectWebSocket() {
                 if (lastPrediction && lastPrediction !== "?") {
                     if (lastPrediction === result) {
                         apiResponseData.tong_dung++;
-                        correctnessStatus = "ĐÚNG";
-                        consecutiveLosses = 0; // Thắng, reset chuỗi thua
                     } else {
                         apiResponseData.tong_sai++;
-                        correctnessStatus = "SAI";
-                        consecutiveLosses++; // Thua, tăng chuỗi thua
                     }
                 }
-
-                // =========================================================
-                // == LOGIC LẬT KÈO ==
-                if (!isReversedMode && consecutiveLosses >= 2) {
-                    isReversedMode = true;
-                    consecutiveLosses = 0; // Reset bộ đếm khi chuyển chế độ
-                    console.log('[🔄] Lật kèo! Gãy 2 tay, BẬT chế độ đảo ngược.');
-                } else if (isReversedMode && consecutiveLosses >= 1) {
-                    isReversedMode = false;
-                    consecutiveLosses = 0; // Reset bộ đếm khi chuyển chế độ
-                    console.log('[🔄] Quay xe! Gãy 1 tay khi đang đảo, TẮT chế độ đảo ngược.');
-                }
-                // =========================================================
 
                 const totalGames = apiResponseData.tong_dung + apiResponseData.tong_sai;
                 apiResponseData.ty_le_thang_lich_su = totalGames === 0 ? "0%" : `${((apiResponseData.tong_dung / totalGames) * 100).toFixed(0)}%`;
@@ -129,7 +105,7 @@ function connectWebSocket() {
                     session: currentSessionId, d1, d2, d3, 
                     totalScore: total, result, 
                     prediction: lastPrediction,
-                    correctness: correctnessStatus 
+                    correctness: lastPrediction === result ? "ĐÚNG" : "SAI" 
                 };
                 fullHistory.push(historyEntry);
                 if (fullHistory.length > MAX_HISTORY_SIZE) fullHistory.shift();
@@ -143,17 +119,7 @@ function connectWebSocket() {
                 let predictionConfidence = "0%";
                 
                 if (predictionResult && predictionResult.prediction) {
-                    const originalPrediction = predictionResult.prediction;
-                    
-                    // =========================================================
-                    // == ÁP DỤNG CHẾ ĐỘ LẬT KÈO VÀO DỰ ĐOÁN ==
-                    if (isReversedMode && (originalPrediction === 'Tài' || originalPrediction === 'Xỉu')) {
-                        finalPrediction = (originalPrediction === 'Tài') ? 'Xỉu' : 'Tài';
-                    } else {
-                        finalPrediction = originalPrediction; // Giữ nguyên nếu không phải chế độ đảo hoặc không phải Tài/Xỉu
-                    }
-                    // =========================================================
-
+                    finalPrediction = predictionResult.prediction;
                     predictionConfidence = `${(predictionResult.confidence * 100).toFixed(0)}%`;
                 }
 
@@ -171,8 +137,7 @@ function connectWebSocket() {
                 lastPrediction = finalPrediction;
                 currentSessionId = null;
                 
-                const mode_display = isReversedMode ? " (Đảo ngược)" : "";
-                console.log(`Phiên #${apiResponseData.phien}: ${apiResponseData.tong} (${result}) | Dự đoán mới: ${finalPrediction}${mode_display} | Tin cậy: ${apiResponseData.do_tin_cay} | Tỷ lệ thắng: ${apiResponseData.ty_le_thang_lich_su}`);
+                console.log(`Phiên #${apiResponseData.phien}: ${apiResponseData.tong} (${result}) | Dự đoán: ${finalPrediction} | Tin cậy: ${apiResponseData.do_tin_cay} | Tỷ lệ thắng: ${apiResponseData.ty_le_thang_lich_su}`);
             }
         } catch (e) {
             console.error('[❌] Lỗi xử lý message:', e.message);
