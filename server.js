@@ -211,5 +211,3 @@ app.listen(PORT, () => {
     console.log(`[🌐] Server is running at http://localhost:${PORT}`);
     connectWebSocket();
 });
-
-server của tôi đây , tôi muốn dùng cái thuật toán đó nhưng js ở server không được sửa cái gì nhé , không đảo ngược nha
