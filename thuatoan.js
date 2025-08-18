@@ -1,132 +1,119 @@
 /**
- * thuatoan.js - Phiên bản "Thuật Toán Trạng Thái" (Luôn Dự Đoán)
- *
- * Thuật toán hoạt động dựa trên các trạng thái:
- * 1. ANALYZING: Tìm kiếm cầu. Nếu không thấy, sẽ đoán ngẫu nhiên.
- * 2. TRACKING: Bám theo cầu đã tìm thấy.
- * 3. Khi cầu gãy, ngay lập tức chuyển sang đoán ngẫu nhiên.
+ * thuatoan.js
+ * Phiên bản "Bắt Cầu Thông Minh".
+ * Ưu tiên 1: Bắt cầu bệt (3+ phiên giống nhau).
+ * Ưu tiên 2: Bắt cầu 1-1 (xen kẽ).
+ * Mặc định: KHÔNG DỰ ĐOÁN (Chờ cầu rõ ràng).
  */
+
+// --- CÁC HÀM PHÂN TÍCH (Không được sử dụng trong phiên bản này) ---
+// Giữ lại các hàm này nếu bạn muốn quay lại thuật toán cũ sau này.
+function analyzeStreak(history) {
+    if (history.length === 0) return { streak: 0, currentResult: null, breakProb: 0.0 };
+    let streak = 1;
+    const currentResult = history[history.length - 1].result;
+    for (let i = history.length - 2; i >= 0; i--) {
+        if (history[i].result === currentResult) streak++; else break;
+    }
+    let breakProb = 0.0;
+    if (streak >= 7) breakProb = 0.90;
+    else if (streak >= 5) breakProb = 0.75 + (streak - 5) * 0.07;
+    else if (streak >= 3) breakProb = 0.40 + (streak - 3) * 0.1;
+    return { streak, currentResult, breakProb };
+}
+function analyzeStatistics(history) {
+    const results = history.map(h => h.result);
+    const scores = history.map(h => h.totalScore);
+    const taiCount = results.filter(r => r === 'Tài').length;
+    const xiuCount = results.length - taiCount;
+    const taiRatio = taiCount / results.length;
+    const switches = results.slice(1).reduce((count, curr, idx) => count + (curr !== results[idx] ? 1 : 0), 0);
+    const switchRate = results.length > 1 ? switches / (results.length - 1) : 0;
+    const avgScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const scoreStdDev = Math.sqrt(scores.map(x => Math.pow(x - avgScore, 2)).reduce((a, b) => a + b) / scores.length);
+    return { taiCount, xiuCount, taiRatio, imbalance: Math.abs(taiCount - xiuCount) / results.length, switchRate, avgScore, scoreStdDev };
+}
+function analyzePatterns(history, patternLength = 3) {
+    const results = history.map(h => h.result);
+    if (results.length < patternLength + 1) return { prediction: null, confidence: 0 };
+    const lastPattern = results.slice(-patternLength).join('-');
+    const occurrences = { 'Tài': 0, 'Xỉu': 0, 'total': 0 };
+    for (let i = 0; i <= results.length - (patternLength + 1); i++) {
+        const currentSlice = results.slice(i, i + patternLength).join('-');
+        if (currentSlice === lastPattern) {
+            const nextResult = results[i + patternLength];
+            occurrences[nextResult]++;
+            occurrences.total++;
+        }
+    }
+    if (occurrences.total < 2) return { prediction: null, confidence: 0, reason: "Không tìm thấy mẫu hình lặp lại đủ mạnh." };
+    const taiProb = occurrences['Tài'] / occurrences.total;
+    const xiuProb = occurrences['Xỉu'] / occurrences.total;
+    const prediction = taiProb > xiuProb ? 'Tài' : 'Xỉu';
+    const confidence = Math.max(taiProb, xiuProb);
+    return { prediction, confidence, reason: `Mẫu [${lastPattern}] đã xuất hiện ${occurrences.total} lần, thường dẫn đến ${prediction} (${(confidence * 100).toFixed(0)}%)` };
+}
+
+// --- CLASS DỰ ĐOÁN CHÍNH ---
 
 class MasterPredictor {
     constructor() {
         this.history = [];
         this.MAX_HISTORY_SIZE = 200;
-        this.MIN_HISTORY_FOR_PREDICTION = 5;
-
-        this.currentState = 'ANALYZING';
-        this.trackedPattern = {
-            type: null,
-            value: null
-        };
     }
 
     async updateData(newResult) {
-        this.history.push({
+        const formattedResult = {
             totalScore: newResult.score,
             result: newResult.result
-        });
+        };
+        this.history.push(formattedResult);
+
         if (this.history.length > this.MAX_HISTORY_SIZE) {
             this.history.shift();
         }
     }
 
     async predict() {
-        if (this.history.length < this.MIN_HISTORY_FOR_PREDICTION) {
+        // BƯỚC 1: KIỂM TRA ĐIỀU KIỆN (Yêu cầu 5 phiên)
+        if (this.history.length < 5) {
             return {
                 prediction: "?",
                 confidence: 0,
-                reason: `Đang chờ đủ ${this.MIN_HISTORY_FOR_PREDICTION} phiên. Hiện có: ${this.history.length}.`
+                reason: `Đang chờ đủ 5 phiên để bắt đầu. Hiện có: ${this.history.length} phiên.`
             };
         }
 
-        const lastResult = this.history[this.history.length - 1].result;
-        const r = this.history.map(h => h.result);
-        const r1 = lastResult,
-              r2 = r[r.length - 2],
-              r3 = r[r.length - 3];
+        // Lấy 3 kết quả gần nhất để phân tích cầu
+        const last3Results = this.history.slice(-3).map(h => h.result);
+        const last = last3Results[2];
+        const secondLast = last3Results[1];
+        const thirdLast = last3Results[0];
 
-        // --- BƯỚC 1: KIỂM TRA NẾU CẦU ĐANG THEO BỊ GÃY ---
-        if (this.currentState === 'TRACKING') {
-            let patternBroken = false;
-            if (this.trackedPattern.type === 'STREAK' && r1 !== this.trackedPattern.value) {
-                patternBroken = true;
-            }
-            if (this.trackedPattern.type === 'ALTERNATING' && r1 === r2) {
-                patternBroken = true;
-            }
-
-            if (patternBroken) {
-                this.currentState = 'ANALYZING';
-                this.trackedPattern = { type: null, value: null };
-                
-                // THAY ĐỔI: Khi cầu gãy, đoán ngẫu nhiên ngay lập tức
-                const prediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
-                return {
-                    prediction,
-                    confidence: 0.50,
-                    reason: `Cầu cũ đã gãy. Dự đoán ngẫu nhiên trong khi tìm cầu mới.`
-                };
-            }
+        // --- ƯU TIÊN 1: KIỂM TRA CẦU BỆT ---
+        if (last === secondLast && secondLast === thirdLast) {
+            const prediction = last; // Đi theo cầu
+            const confidence = 0.85; // Độ tin cậy cao khi có cầu bệt
+            const reason = `Phát hiện cầu bệt ${prediction} (3+ phiên), đi theo cầu.`;
+            return { prediction, confidence, reason };
         }
 
-        // --- BƯỚC 2: XỬ LÝ DỰ ĐOÁN DỰA TRÊN TRẠNG THÁI HIỆN TẠI ---
-
-        // A. Nếu đang trong trạng thái BÁM CẦU
-        if (this.currentState === 'TRACKING') {
-            if (this.trackedPattern.type === 'STREAK') {
-                return {
-                    prediction: this.trackedPattern.value,
-                    confidence: 0.90,
-                    reason: `Đang bám theo cầu bệt ${this.trackedPattern.value}.`
-                };
-            }
-            if (this.trackedPattern.type === 'ALTERNATING') {
-                const prediction = r1 === 'Tài' ? 'Xỉu' : 'Tài';
-                return {
-                    prediction,
-                    confidence: 0.88,
-                    reason: `Đang bám theo cầu 1-1 (${r2}-${r1}...).`
-                };
-            }
+        // --- ƯU TIÊN 2: KIỂM TRA CẦU 1-1 ---
+        // Ví dụ: Tài - Xỉu - Tài. (last !== secondLast && last === thirdLast)
+        if (last !== secondLast && last === thirdLast) {
+            const prediction = secondLast; // Dự đoán kết quả tiếp theo để tạo thành chuỗi 1-1
+            const confidence = 0.80; // Độ tin cậy cao
+            const reason = `Phát hiện cầu 1-1 (${thirdLast}-${secondLast}-${last}), đi theo cầu.`;
+            return { prediction, confidence, reason };
         }
 
-        // B. Nếu đang trong trạng thái TÌM KIẾM
-        if (this.currentState === 'ANALYZING') {
-            // Ưu tiên 1: Tìm cầu bệt mới (3+ phiên)
-            if (r1 === r2 && r2 === r3) {
-                this.currentState = 'TRACKING';
-                this.trackedPattern = { type: 'STREAK', value: r1 };
-                return {
-                    prediction: r1,
-                    confidence: 0.90,
-                    reason: `Phát hiện cầu bệt ${r1} mới. Bắt đầu bám theo.`
-                };
-            }
-
-            // Ưu tiên 2: Tìm cầu 1-1 mới (3+ phiên)
-            if (r1 !== r2 && r2 !== r3 && r1 === r3) {
-                this.currentState = 'TRACKING';
-                this.trackedPattern = { type: 'ALTERNATING', value: null };
-                const prediction = r1 === 'Tài' ? 'Xỉu' : 'Tài';
-                return {
-                    prediction,
-                    confidence: 0.88,
-                    reason: `Phát hiện cầu 1-1 mới (${r3}-${r2}-${r1}). Bắt đầu bám theo.`
-                };
-            }
-
-            // THAY ĐỔI: Nếu không tìm thấy cầu mới, dự đoán ngẫu nhiên
-            const prediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
-            return {
-                prediction,
-                confidence: 0.50,
-                reason: "Chưa có cầu rõ ràng, dự đoán ngẫu nhiên."
-            };
-        }
+        // --- MẶC ĐỊNH MỚI: CHỜ CẦU ---
+        // Nếu không có cầu bệt hay cầu 1-1 rõ ràng, sẽ không dự đoán.
+        const prediction = "?";
+        const confidence = 0;
+        const reason = `Không có cầu rõ ràng, nên bỏ qua phiên này.`;
         
-        // Trường hợp dự phòng
-        const prediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
-        return { prediction, confidence: 0.50, reason: "Lỗi logic, reset về dự đoán ngẫu nhiên." };
+        return { prediction, confidence, reason };
     }
 }
 
