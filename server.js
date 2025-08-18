@@ -1,28 +1,29 @@
-// server.js (ĐÃ SỬA LỖI CHẬM/LỆCH PHIÊN VÀ TĂNG ĐỘ ỔN ĐỊNH)
+// server.js
 
 const WebSocket = require('ws');
 const express = require('express');
 const cors = require('cors');
+// Thay đổi import để gọi hàm masterPredictor từ thuật toán "Siêu Cấp"
 const { masterPredictor } = require('./thuatoan.js');
 
 const app = express();
 app.use(cors());
 const PORT = process.env.PORT || 5000;
 
+// Mở rộng apiResponseData để hiển thị thêm thông tin từ thuật toán mới
 let apiResponseData = {
-    id: "Sunwin AI - Thuật Toán Siêu Cấp v2.1 (Ổn Định)",
+    id: "Sunwin AI - Thuật Toán Siêu Cấp v2.0",
     phien: null,
-    phien_ket_qua: null,
     xuc_xac_1: null,
     xuc_xac_2: null,
     xuc_xac_3: null,
     tong: null,
     ket_qua: "",
-    du_doan_cho_phien: "?",
+    du_doan: "?",
     do_tin_cay: "0%",
-    boi_canh: "Đang khởi động...",
-    phuong_phap: "Đang chờ phiên mới...",
-    ly_do: "Chưa có đủ dữ liệu để phân tích.",
+    boi_canh: "Đang khởi động...", // Mới: Bối cảnh trận đấu
+    phuong_phap: "Đang chờ phiên mới...", // Mới: Phương pháp chính
+    ly_do: "Chưa có đủ dữ liệu để phân tích.", // Mới: Các yếu tố đóng góp
     tong_dung: 0,
     tong_sai: 0,
     ty_le_thang_lich_su: "0%",
@@ -31,19 +32,20 @@ let apiResponseData = {
 };
 
 const MAX_HISTORY_SIZE = 1000;
-let currentSessionId = null; // Luôn là mã của phiên SẮP diễn ra
-let lastPredictionDisplay = "?";
-const fullHistory = [];
+let currentSessionId = null;
+let lastPredictionDisplay = "?"; // Chỉ lưu dự đoán dạng 'Tài'/'Xỉu' để so sánh
+const fullHistory = []; // Lưu trữ lịch sử chi tiết, đây sẽ là đầu vào cho thuật toán mới
 
+// Thông tin kết nối WebSocket (giữ nguyên)
 const WEBSOCKET_URL = "wss://websocket.azhkthg1.net/websocket?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhbW91bnQiOjAsInVzZXJuYW1lIjoiU0NfYXBpc3Vud2luMTIzIn0.hgrRbSV6vnBwJMg9ZFtbx3rRu9mX_hZMZ_m5gMNhkw0";
 const WS_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
     "Origin": "https://play.sun.win"
 };
-const RECONNECT_DELAY = 3000; // Giảm thời gian chờ kết nối lại
+const RECONNECT_DELAY = 5000;
 const PING_INTERVAL = 15000;
-const WATCHDOG_TIMEOUT = PING_INTERVAL + 5000; // 20 giây
 
+// Các message khởi tạo (giữ nguyên)
 const initialMessages = [
     [1, "MiniGame", "GM_fbbdbebndbbc", "123123p", { "info": "{\"ipAddress\":\"2402:800:62cd:cb7c:1a7:7a52:9c3e:c290\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiJuZG5lYmViYnMiLCJib3QiOjAsImlzTWVyY2hhbnQiOmZhbHNlLCJ2ZXJpZmllZEJhbmtBY2NvdW50IjpmYWxzZSwicGxheUV2ZW50TG9iYnkiOmZhbHNlLCJjdXN0b21lcklkIjozMTIxMDczMTUsImFmZklkIjoiR0VNV0lOIiwiYmFubmVkIjpmYWxzZSwiYnJhbmQiOiJnZW0iLCJ0aW1lc3RhbXAiOjE3NTQ5MjYxMDI1MjcsImxvY2tHYW1lcyI6W10sImFtb3VudCI6MCwibG9ja0NoYXQiOmZhbHNlLCJwaG9uZVZlcmlmaWVkIjpmYWxzZSwiaXBBZGRyZXNzIjoiMjQwMjo4MDA6NjJjZDpjYjdjOjFhNzo3YTUyOjljM-M6YzI5MCIsIm11dGUiOmZhbHNlLCJhdmF0YXIiOiJodHRwczovL2ltYWdlcy5zd2luc2hvcC5uZXQvaW1hZ2VzL2F2YXRhci9hdmF0YXJfMDEucG5nIiwicGxhdGZvcm1JZCI6NSwidXNlcklkIjoiN2RhNDlhNDQtMjlhYS00ZmRiLWJkNGMtNjU5OTQ5YzU3NDdkIiwicmVnVGltZSI6MTc1NDkyNjAyMjUxNSwicGhvbmUiOiIiLCJkZXBvc2l0IjpmYWxzZSwidXNlcm5hbWUiOiJHTV9mYmJkYmVibmRiYmMifQ.DAyEeoAnz8we-Qd0xS0tnqOZ8idkUJkxksBjr_Gei8A\",\"locale\":\"vi\",\"userId\":\"7da49a44-29aa-4fdb-bd4c-659949c5747d\",\"username\":\"GM_fbbdbebndbbc\",\"timestamp\":1754926102527,\"refreshToken\":\"7cc4ad191f4348849f69427a366ea0fd.a68ece9aa85842c7ba523170d0a4ae3e\"}", "signature": "53D9E12F910044B140A2EC659167512E2329502FE84A6744F1CD5CBA9B6EC04915673F2CBAE043C4EDB94DDF88F3D3E839A931100845B8F179106E1F44ECBB4253EC536610CCBD0CE90BD8495DAC3E8A9DBDB46FE49B51E88569A6F117F8336AC7ADC226B4F213ECE2F8E0996F2DD5515476C8275F0B2406CDF2987F38A6DA24"}],
     [6, "MiniGame", "taixiuPlugin", { cmd: 1005 }],
@@ -52,28 +54,17 @@ const initialMessages = [
 
 let ws = null;
 let pingInterval = null;
-let watchdogTimer = null; // MỚI: Biến cho cơ chế watchdog
-
-// MỚI: Hàm watchdog để đảm bảo kết nối luôn "sống"
-function startWatchdog() {
-    clearTimeout(watchdogTimer);
-    watchdogTimer = setTimeout(() => {
-        console.error(`[❌] Watchdog: Không nhận được tín hiệu PONG trong ${WATCHDOG_TIMEOUT / 1000}s. Buộc kết nối lại...`);
-        if (ws) ws.terminate(); // Buộc đóng kết nối để kích hoạt 'close' event
-    }, WATCHDOG_TIMEOUT);
-}
 
 function connectWebSocket() {
+    // ... (phần này giữ nguyên không đổi)
     if (ws) {
         ws.removeAllListeners();
         ws.close();
     }
-    clearTimeout(watchdogTimer);
     ws = new WebSocket(WEBSOCKET_URL, { headers: WS_HEADERS });
 
     ws.on('open', () => {
         console.log('[✅] WebSocket connected.');
-        startWatchdog(); // MỚI: Khởi động watchdog khi kết nối
         initialMessages.forEach((msg, i) => {
             setTimeout(() => {
                 if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
@@ -85,10 +76,7 @@ function connectWebSocket() {
         }, PING_INTERVAL);
     });
 
-    ws.on('pong', () => {
-        console.log('[📶] Ping OK.');
-        startWatchdog(); // MỚI: Reset watchdog mỗi khi nhận được tín hiệu
-    });
+    ws.on('pong', () => console.log('[📶] Ping OK.'));
 
     ws.on('message', (message) => {
         try {
@@ -98,19 +86,17 @@ function connectWebSocket() {
             const { cmd, sid, d1, d2, d3 } = data[1];
 
             if (cmd === 1008 && sid) {
-                currentSessionId = sid; // Cập nhật mã phiên mới nhất
-                apiResponseData.phien = currentSessionId; // Hiển thị phiên đang chờ
+                currentSessionId = sid;
             }
 
             if (cmd === 1003 && d1 != null && d2 != null && d3 != null) {
-                // FIX: Sửa lỗi lệch phiên. Kết quả này là của phiên (hiện tại - 1)
-                const finishedSessionId = currentSessionId ? currentSessionId - 1 : (apiResponseData.phien_ket_qua || 0) + 1;
-                
                 const total = d1 + d2 + d3;
+                // Chuẩn hóa dữ liệu ngay từ đầu
                 const resultInternal = (total > 10) ? "T" : "X";
                 const resultDisplay = (total > 10) ? "Tài" : "Xỉu";
                 
                 let correctnessStatus = null;
+                // So sánh kết quả với dự đoán của phiên TRƯỚC
                 if (lastPredictionDisplay !== "?") {
                     if (lastPredictionDisplay === resultDisplay) {
                         apiResponseData.tong_dung++;
@@ -124,41 +110,44 @@ function connectWebSocket() {
                 const totalGames = apiResponseData.tong_dung + apiResponseData.tong_sai;
                 apiResponseData.ty_le_thang_lich_su = totalGames === 0 ? "0%" : `${((apiResponseData.tong_dung / totalGames) * 100).toFixed(0)}%`;
 
+                // **Quan trọng: Cập nhật lịch sử với cả điểm và kết quả dạng 'T'/'X'**
                 const historyEntry = { 
-                    session: finishedSessionId, 
+                    session: currentSessionId || 'N/A', 
                     d1, d2, d3, totalScore: total, 
-                    result: resultInternal,
+                    result: resultInternal, // Thuật toán cần 'T'/'X'
                     predictionForThisSession: lastPredictionDisplay,
                     correctness: correctnessStatus
                 };
+                fullHistory.push(historyEntry);
+                if (fullHistory.length > MAX_HISTORY_SIZE) fullHistory.shift();
                 
-                // Tránh thêm lịch sử trùng lặp
-                if (!fullHistory.some(h => h.session === finishedSessionId)) {
-                    fullHistory.push(historyEntry);
-                    if (fullHistory.length > MAX_HISTORY_SIZE) fullHistory.shift();
-                }
-                
+                // **Gọi thuật toán "Siêu Cấp" với lịch sử chi tiết**
                 const newPredictionResult = masterPredictor(fullHistory);
                 
-                apiResponseData.phien_ket_qua = finishedSessionId;
+                // **Cập nhật dữ liệu API với kết quả của phiên VỪA XONG**
+                apiResponseData.phien = historyEntry.session;
                 apiResponseData.xuc_xac_1 = d1;
                 apiResponseData.xuc_xac_2 = d2;
                 apiResponseData.xuc_xac_3 = d3;
                 apiResponseData.tong = total;
                 apiResponseData.ket_qua = resultDisplay;
 
-                apiResponseData.du_doan_cho_phien = newPredictionResult.prediction;
+                // **Lưu và hiển thị dự đoán cho phiên SẮP TỚI**
+                apiResponseData.du_doan = newPredictionResult.prediction; // đã là 'Tài'/'Xỉu' hoặc '...'
                 apiResponseData.do_tin_cay = `${newPredictionResult.confidence.toFixed(0)}%`;
                 apiResponseData.boi_canh = newPredictionResult.context || 'N/A';
                 apiResponseData.phuong_phap = newPredictionResult.method || 'N/A';
                 apiResponseData.ly_do = newPredictionResult.contributingFactors || 'N/A';
                 
+                // Cập nhật các thông tin khác
                 apiResponseData.chuoi_ket_qua_gan_nhat = fullHistory.map(h => h.result).slice(-50).join('');
                 apiResponseData.tong_phien_da_phan_tich = fullHistory.length;
 
+                // Lưu lại dự đoán mới để kiểm tra ở vòng lặp sau
                 lastPredictionDisplay = newPredictionResult.prediction;
+                currentSessionId = null;
                 
-                console.log(`Kết quả phiên #${finishedSessionId}: ${total} (${resultDisplay}) | Dự đoán cho phiên #${currentSessionId}: ${apiResponseData.du_doan_cho_phien} | Tin cậy: ${apiResponseData.do_tin_cay} | Bối cảnh: ${apiResponseData.boi_canh}`);
+                console.log(`Phiên #${apiResponseData.phien}: ${apiResponseData.tong} (${resultDisplay}) | Dự đoán mới: ${apiResponseData.du_doan} | Tin cậy: ${apiResponseData.do_tin_cay} (${apiResponseData.boi_canh}) | Thắng: ${apiResponseData.ty_le_thang_lich_su}`);
             }
         } catch (e) {
             console.error('[❌] Lỗi xử lý message:', e.message);
@@ -166,25 +155,26 @@ function connectWebSocket() {
     });
 
     ws.on('close', (code, reason) => {
+        // ... (phần này giữ nguyên)
         console.log(`[🔌] WebSocket closed. Code: ${code}, Reason: ${reason.toString()}. Reconnecting in ${RECONNECT_DELAY / 1000}s...`);
         clearInterval(pingInterval);
-        clearTimeout(watchdogTimer);
         setTimeout(connectWebSocket, RECONNECT_DELAY);
     });
 
     ws.on('error', (err) => {
+        // ... (phần này giữ nguyên)
         console.error('[❌] WebSocket error:', err.message);
-        if (ws) ws.close();
+        ws.close();
     });
 }
 
-// API endpoint để lấy dữ liệu JSON
+// API endpoint để lấy dữ liệu JSON (giữ nguyên)
 app.get('/sunlon', (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.send(JSON.stringify(apiResponseData, null, 4));
 });
 
-// API endpoint để xem lịch sử phiên
+// API endpoint để xem lịch sử phiên (Cập nhật để hiển thị đúng)
 app.get('/history', (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     let html = `
@@ -205,6 +195,7 @@ app.get('/history', (req, res) => {
         html += '<p>Chưa có dữ liệu lịch sử.</p>';
     } else {
         [...fullHistory].reverse().forEach(h => {
+            // Chuyển đổi 'T'/'X' từ lịch sử sang 'Tài'/'Xỉu' để hiển thị
             const resultDisplayForHistory = h.result === 'T' ? 'Tài' : 'Xỉu';
             const resultClass = resultDisplayForHistory === 'Tài' ? 'tai' : 'xiu';
             
@@ -228,17 +219,17 @@ app.get('/history', (req, res) => {
     res.send(html);
 });
 
-// Trang chủ
+// Trang chủ (giữ nguyên)
 app.get('/', (req, res) => {
     res.send(`
         <h2 style="font-family: sans-serif; color: #333;">🎯 API Phân Tích Sunwin Tài Xỉu</h2>
-        <p style="font-family: sans-serif;">Sử dụng Thuật Toán Siêu Cấp v2.1 (Ổn Định)</p>
+        <p style="font-family: sans-serif;">Sử dụng Thuật Toán Siêu Cấp v2.0</p>
         <p style="font-family: sans-serif;">Xem kết quả JSON: <a href="/sunlon">/sunlon</a></p>
         <p style="font-family: sans-serif;">Xem lịch sử các phiên gần nhất: <a href="/history">/history</a></p>`);
 });
 
 app.listen(PORT, () => {
-    console.log('[🚀] Đã kích hoạt Thuật Toán Siêu Cấp v2.1 (Ổn Định)!');
+    console.log('[🚀] Đã kích hoạt Thuật Toán Siêu Cấp v2.0!');
     console.log(`[🌐] Server đang chạy tại http://localhost:${PORT}`);
     connectWebSocket();
 });
