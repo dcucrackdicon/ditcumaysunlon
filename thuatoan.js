@@ -3,7 +3,7 @@
  * Phiên bản "Bắt Cầu Thông Minh".
  * Ưu tiên 1: Bắt cầu bệt (3+ phiên giống nhau).
  * Ưu tiên 2: Bắt cầu 1-1 (xen kẽ).
- * Mặc định: KHÔNG DỰ ĐOÁN (Chờ cầu rõ ràng).
+ * Mặc định: DỰ ĐOÁN NGẪU NHIÊN.
  */
 
 // --- CÁC HÀM PHÂN TÍCH (Không được sử dụng trong phiên bản này) ---
@@ -107,11 +107,11 @@ class MasterPredictor {
             return { prediction, confidence, reason };
         }
 
-        // --- MẶC ĐỊNH MỚI: CHỜ CẦU ---
-        // Nếu không có cầu bệt hay cầu 1-1 rõ ràng, sẽ không dự đoán.
-        const prediction = "?";
-        const confidence = 0;
-        const reason = `Không có cầu rõ ràng, nên bỏ qua phiên này.`;
+        // --- MẶC ĐỊNH MỚI: DỰ ĐOÁN NGẪU NHIÊN ---
+        // Nếu không có cầu bệt hay cầu 1-1 rõ ràng, sẽ dự đoán ngẫu nhiên.
+        const prediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
+        const confidence = 0.50; // 50% vì là ngẫu nhiên
+        const reason = `Không có cầu rõ ràng, dự đoán ngẫu nhiên.`;
         
         return { prediction, confidence, reason };
     }
