@@ -1,4 +1,4 @@
-// thuatoan.js
+// thuatoan.js (LOGIC ĐẢO NGƯỢC)
 
 // Phân tích chuỗi Markov
 function analyzeMarkovChains(history) {
@@ -9,7 +9,6 @@ function analyzeMarkovChains(history) {
         'XX': { T: 0, X: 0 }
     };
 
-    // Bắt đầu từ index 2 vì cần 2 phần tử trước đó
     for (let i = 2; i < history.length; i++) {
         const prev = history[i-2] + history[i-1];
         const current = history[i];
@@ -21,13 +20,13 @@ function analyzeMarkovChains(history) {
     const lastTwo = history.slice(-2).join('');
     const counts = transitions[lastTwo];
 
-    // Nếu chưa từng gặp chuỗi 2 ký tự này, không thể dự đoán
     if (!counts || (counts.T === 0 && counts.X === 0)) {
         return { prediction: null, confidence: 0 };
     }
 
     const total = counts.T + counts.X;
-    const prediction = counts.T > counts.X ? "T" : "X";
+    // **ĐẢO NGƯỢC LOGIC: Nếu T nhiều hơn thì đoán X và ngược lại**
+    const prediction = counts.T > counts.X ? "X" : "T";
     const confidence = Math.round(Math.max(counts.T, counts.X) / total * 100);
 
     return { prediction, confidence };
@@ -41,16 +40,15 @@ function analyzeShortTermTrend(history) {
     const taiCount = last5.filter(r => r === "T").length;
     const xiuCount = 5 - taiCount;
 
-    // Nếu có 4 hoặc 5 Tài, dự đoán đảo ngược thành Xỉu
+    // **ĐẢO NGƯỢC LOGIC: Nếu có nhiều Tài, dự đoán tiếp tục là Tài**
     if (taiCount >= 4) {
-        return { prediction: "X", confidence: 70 + (taiCount - 4) * 10 }; // Độ tin cậy tăng nếu là 5
+        return { prediction: "T", confidence: 70 + (taiCount - 4) * 10 };
     }
-    // Nếu có 4 hoặc 5 Xỉu, dự đoán đảo ngược thành Tài
+    // **ĐẢO NGƯỢC LOGIC: Nếu có nhiều Xỉu, dự đoán tiếp tục là Xỉu**
     if (xiuCount >= 4) {
-        return { prediction: "T", confidence: 70 + (xiuCount - 4) * 10 };
+        return { prediction: "X", confidence: 70 + (xiuCount - 4) * 10 };
     }
 
-    // Nếu không có xu hướng rõ ràng, không đưa ra dự đoán từ hàm này
     return { prediction: null, confidence: 0 };
 }
 
@@ -59,7 +57,6 @@ function detectLongCycle(history) {
     if (history.length < 15) return { prediction: null, confidence: 0 };
     
     const last15 = history.slice(-15);
-    // Các mẫu phổ biến cần tìm
     const patterns = [
         { pattern: ["T", "X"], name: "TX" },
         { pattern: ["T", "T", "X"], name: "TTX" },
@@ -79,13 +76,13 @@ function detectLongCycle(history) {
             }
         }
         
-        // Tính độ tin cậy dựa trên số lần lặp lại
         const confidence = Math.min(95, (matches / (last15.length / p.pattern.length)) * 50);
 
         if (confidence > bestMatch.confidence) {
-            // Xác định phần tử tiếp theo trong chu kỳ
             const nextIndexInPattern = last15.length % p.pattern.length;
-            const prediction = p.pattern[nextIndexInPattern];
+            const originalPrediction = p.pattern[nextIndexInPattern];
+            // **ĐẢO NGƯỢC LOGIC: Lật ngược kết quả của chu kỳ**
+            const prediction = originalPrediction === "T" ? "X" : "T";
             bestMatch = { prediction, confidence, pattern: p.name };
         }
     });
@@ -98,45 +95,47 @@ function statisticalFallback(history) {
     const taiCount = history.filter(r => r === "T").length;
     const xiuCount = history.length - taiCount;
 
-    // Nếu có sự chênh lệch lớn, dự đoán sẽ cân bằng lại
     const imbalance = Math.abs(taiCount - xiuCount) / history.length;
-    if (imbalance > 0.2) { // chênh lệch trên 20%
-        const prediction = taiCount > xiuCount ? "X" : "T";
+    if (imbalance > 0.2) {
+        // **ĐẢO NGƯỢC LOGIC: Nếu lệch về Tài, tiếp tục đoán Tài**
+        const prediction = taiCount > xiuCount ? "T" : "X";
         return { prediction, confidence: 55 };
     }
 
-    // Nếu không, dự đoán theo kết quả cuối cùng (xu hướng)
-    return { prediction: history[history.length - 1], confidence: 50 };
+    // **ĐẢO NGƯỢC LOGIC: Đoán ngược lại với kết quả cuối cùng**
+    const lastResult = history[history.length - 1];
+    const prediction = lastResult === "T" ? "X" : "T";
+    return { prediction, confidence: 50 };
 }
 
 // Dự đoán nâng cao kết hợp nhiều thuật toán
 function enhancedPredictNext(history) {
     if (history.length < 5) {
-        return { prediction: history[history.length - 1] || "T", confidence: 40 };
+        const lastResult = history[history.length - 1];
+        // **ĐẢO NGƯỢC LOGIC: Đoán ngược lại kết quả cuối, hoặc mặc định là X nếu chưa có lịch sử**
+        const prediction = lastResult ? (lastResult === "T" ? "X" : "T") : "X";
+        return { prediction, confidence: 40 };
     }
 
     const analyses = [];
     
-    // Luôn chạy tất cả các phân tích và thu thập kết quả
+    // Các hàm phân tích bên trong đã được đảo ngược, nên logic ở đây giữ nguyên
     analyses.push({ name: 'Markov', ...analyzeMarkovChains(history) });
     analyses.push({ name: 'Trend', ...analyzeShortTermTrend(history) });
     analyses.push({ name: 'Cycle', ...detectLongCycle(history) });
 
-    // Sắp xếp các phân tích theo độ tin cậy giảm dần
     analyses.sort((a, b) => b.confidence - a.confidence);
 
     const bestAnalysis = analyses[0];
 
-    // Nếu phân tích tốt nhất có độ tin cậy đủ cao, hãy sử dụng nó
     if (bestAnalysis && bestAnalysis.confidence > 65) {
         return {
             prediction: bestAnalysis.prediction,
             confidence: bestAnalysis.confidence,
-            method: bestAnalysis.name, // Thêm phương pháp được sử dụng
+            method: bestAnalysis.name,
         };
     }
 
-    // Nếu không, sử dụng phương pháp dự phòng
     const fallback = statisticalFallback(history);
     return {
         prediction: fallback.prediction,
