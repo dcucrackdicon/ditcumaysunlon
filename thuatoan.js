@@ -1,5 +1,5 @@
 /**
- * thuatoan.js (Phiên bản Siêu Tốc 10 phiên)
+ * thuatoan.js (Phiên bản Siêu Tốc 10 phiên - ĐẢO NGƯỢC)
  * Bắt đầu dự đoán từ phiên thứ 10.
  *
  * --- LOGIC 2 CHẾ ĐỘ ---
@@ -189,28 +189,32 @@ class MasterPredictor {
     }
 
     /**
-     * Hàm tổng hợp và trả về kết quả cuối cùng
+     * Hàm tổng hợp và trả về kết quả cuối cùng (ĐÃ ĐẢO NGƯỢC)
      */
     finalizePrediction(taiScore, xiuScore, reasons, mode) {
-        let finalPrediction;
+        let originalPrediction;
         let confidence;
 
         if (taiScore === xiuScore) {
-            finalPrediction = this.history[this.history.length - 1].result === 'Tài' ? 'Xỉu' : 'Tài';
+            originalPrediction = this.history[this.history.length - 1].result === 'Tài' ? 'Xỉu' : 'Tài';
             confidence = 0.51;
             reasons.push('[Hòa điểm] Không có tín hiệu rõ ràng, dự đoán ngược lại.');
         } else {
-            finalPrediction = taiScore > xiuScore ? 'Tài' : 'Xỉu';
+            originalPrediction = taiScore > xiuScore ? 'Tài' : 'Xỉu';
             const totalScore = taiScore + xiuScore;
             const confidenceScore = Math.abs(taiScore - xiuScore) / totalScore;
             confidence = 0.5 + (confidenceScore * 0.45);
         }
         
-        const reasonText = `[Chế độ ${mode}] ${reasons.join(' | ')}`;
+        // --- BƯỚC ĐẢO NGƯỢC KẾT QUẢ ---
+        const finalPrediction = originalPrediction === 'Tài' ? 'Xỉu' : 'Tài';
+
+        // Thêm tag [ĐẢO NGƯỢC] vào lý do để dễ nhận biết
+        const reasonText = `[Chế độ ${mode}] [ĐẢO NGƯỢC] ${reasons.join(' | ')}`;
         return {
-            prediction: finalPrediction,
-            confidence: Math.min(confidence, 0.95),
-            reason: reasons.length > 0 ? reasonText : `[Chế độ ${mode}] Không có tín hiệu.`,
+            prediction: finalPrediction, // Trả về kết quả đã đảo ngược
+            confidence: Math.min(confidence, 0.95), // Giữ nguyên độ tin cậy của dự đoán gốc
+            reason: reasons.length > 0 ? reasonText : `[Chế độ ${mode}] [ĐẢO NGƯỢC] Không có tín hiệu.`,
         };
     }
 }
