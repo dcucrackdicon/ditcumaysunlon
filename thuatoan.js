@@ -1,14 +1,12 @@
 /**
- * thuatoan.js (Phiên bản Bệt & Đảo Ngược)
+ * thuatoan.js (Phiên bản Bệt & Ngẫu Nhiên)
  *
  * --- LOGIC CỐT LÕI ---
  * 1. ƯU TIÊN BỆT: Nếu phát hiện chuỗi 3 phiên giống nhau, sẽ theo bệt đến cùng.
  * - Ví dụ: ...Tài, Tài, Tài -> Dự đoán tiếp là TÀI.
- * - TRƯỜNG HỢP NÀY SẼ KHÔNG ĐẢO NGƯỢC KẾT QUẢ.
  *
- * 2. NGẪU NHIÊN & ĐẢO NGƯỢC: Nếu không có bệt, sẽ dự đoán ngẫu nhiên rồi đảo ngược.
- * - Ví dụ: Random ra Tài -> Kết quả cuối cùng là XỈU.
- * - Ví dụ: Random ra Xỉu -> Kết quả cuối cùng là TÀI.
+ * 2. NGẪU NHIÊN: Nếu không có bệt, sẽ dự đoán ngẫu nhiên.
+ * - Ví dụ: Random ra Tài -> Kết quả cuối cùng là TÀI.
  */
 
 class MasterPredictor {
@@ -43,7 +41,7 @@ class MasterPredictor {
 
         if (isStreak) {
             const streakResult = last3Results[0];
-            // Nếu có bệt, đi theo bệt và KHÔNG đảo ngược.
+            // Nếu có bệt, đi theo bệt.
             return {
                 prediction: streakResult,
                 confidence: 0.90, // Tự tin cao khi theo bệt
@@ -51,17 +49,14 @@ class MasterPredictor {
             };
         }
 
-        // --- BƯỚC 2: NẾU KHÔNG CÓ BỆT -> NGẪU NHIÊN VÀ ĐẢO NGƯỢC ---
-        // Chọn ngẫu nhiên một kết quả gốc
-        const originalPrediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
-
-        // Đảo ngược kết quả đã chọn ngẫu nhiên
-        const finalPrediction = originalPrediction === 'Tài' ? 'Xỉu' : 'Tài';
+        // --- BƯỚC 2: NẾU KHÔNG CÓ BỆT -> NGẪU NHIÊN ---
+        // Chọn ngẫu nhiên một kết quả
+        const finalPrediction = Math.random() < 0.5 ? 'Tài' : 'Xỉu';
 
         return {
             prediction: finalPrediction,
             confidence: 0.51, // Độ tin cậy thấp vì là ngẫu nhiên
-            reason: `[Ngẫu Nhiên & Đảo Ngược] Không có bệt. Dự đoán ngẫu nhiên (${originalPrediction}) -> Đảo ngược ra ${finalPrediction}.`
+            reason: `[Ngẫu Nhiên] Không có bệt. Dự đoán ngẫu nhiên ra ${finalPrediction}.`
         };
     }
 }
