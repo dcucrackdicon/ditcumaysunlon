@@ -2,7 +2,6 @@
 const WebSocket = require('ws');
 const express = require('express');
 const cors = require('cors');
-// Import class MasterPredictor từ file thuatoan.js
 const { MasterPredictor } = require('./thuatoan.js');
 
 const app = express();
@@ -10,7 +9,7 @@ app.use(cors());
 const PORT = process.env.PORT || 5000;
 
 let apiResponseData = {
-    id: "@ghetvietcode - @tranbinh012 - @Phucdzvl2222",
+    id: "CÓ CÁI LỒN",
     phien: null,
     xuc_xac_1: null,
     xuc_xac_2: null,
@@ -28,10 +27,9 @@ let apiResponseData = {
 
 const MAX_HISTORY_SIZE = 1000;
 let currentSessionId = null;
-let lastPrediction = "?"; 
+let lastPrediction = null; 
 const fullHistory = []; 
 
-// Khởi tạo một instance duy nhất của bộ dự đoán
 const predictor = new MasterPredictor();
 
 const WEBSOCKET_URL = "wss://websocket.azhkthg1.net/websocket?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhbW91bnQiOjAsInVzZXJuYW1lIjoiU0NfYXBpc3Vud2luMTIzIn0.hgrRbSV6vnBwJMg9ZFtbx3rRu9mX_hZMZ_m5gMNhkw0";
@@ -74,7 +72,7 @@ function connectWebSocket() {
 
     ws.on('pong', () => console.log('[📶] Ping OK.'));
 
-    ws.on('message', (message) => { // Bỏ async vì không cần thiết
+    ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
             if (!Array.isArray(data) || typeof data[1] !== 'object') return;
@@ -114,36 +112,31 @@ function connectWebSocket() {
                 fullHistory.push(historyEntry);
                 if (fullHistory.length > MAX_HISTORY_SIZE) fullHistory.shift();
                 
-                // 1. Cập nhật thuật toán với dữ liệu mới (điểm và kết quả)
-                predictor.updateData({ score: total, result: result });
+                // Cập nhật thuật toán với dữ liệu mới (điểm và kết quả)
+                await predictor.updateData({ score: total, result: result });
                 
-                // 2. Lấy dự đoán mới ngay lập tức từ thuật toán
-                const predictionResult = predictor.predict();
+                // Lấy dự đoán mới từ thuật toán
+                const predictionResult = await predictor.predict();
                 
                 let finalPrediction = "?";
                 let predictionConfidence = "0%";
                 
-                if (predictionResult && predictionResult.success && predictionResult.prediction) {
-                    finalPrediction = predictionResult.prediction;
+                if (predictionResult && predictionResult.prediction) {
+                    finalPrediction = predictionResult.prediction; // Sử dụng trực tiếp dự đoán từ thuật toán
                     predictionConfidence = `${(predictionResult.confidence * 100).toFixed(0)}%`;
                 }
 
-                // Cập nhật dữ liệu để trả về qua API
-                apiResponseData = {
-                    ...apiResponseData,
-                    phien: currentSessionId,
-                    xuc_xac_1: d1,
-                    xuc_xac_2: d2,
-                    xuc_xac_3: d3,
-                    tong: total,
-                    ket_qua: result,
-                    du_doan: finalPrediction,
-                    do_tin_cay: predictionConfidence,
-                    pattern: fullHistory.map(h => h.result === 'Tài' ? 'T' : 'X').join(''),
-                    tong_phien_da_phan_tich: fullHistory.length
-                };
+                apiResponseData.phien = currentSessionId;
+                apiResponseData.xuc_xac_1 = d1;
+                apiResponseData.xuc_xac_2 = d2;
+                apiResponseData.xuc_xac_3 = d3;
+                apiResponseData.tong = total;
+                apiResponseData.ket_qua = result;
+                apiResponseData.du_doan = finalPrediction;
+                apiResponseData.do_tin_cay = predictionConfidence;
+                apiResponseData.pattern = fullHistory.map(h => h.result === 'Tài' ? 'T' : 'X').join('');
+                apiResponseData.tong_phien_da_phan_tich = fullHistory.length;
 
-                // Lưu lại dự đoán cho phiên sau
                 lastPrediction = finalPrediction;
                 currentSessionId = null;
                 
@@ -167,7 +160,6 @@ function connectWebSocket() {
     });
 }
 
-// ... (các route express giữ nguyên)
 app.get('/sunlon', (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.send(JSON.stringify(apiResponseData, null, 4));
@@ -212,9 +204,8 @@ app.get('/history', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send(`<h2>🎯 API Phân Tích Sunwin Tài Xỉu</h2><p>Xem kết quả JSON: <a href="/sunlon">/sunlon</a></p><p>Xem lịch sử 1000 phiên gần nhất: <a href="/history">/history</a></p>`);
+    res.send(`<h2>🎯 API Phân Tích Sunwin Tài Xỉu</h2><p>Xem kết quả JSON: <a href="/sunlon">/có lồn</a></p><p>Xem lịch sử 1000 phiên gần nhất: <a href="/history">/có buồi</a></p>`);
 });
-
 
 app.listen(PORT, () => {
     console.log(`[🌐] Server is running at http://localhost:${PORT}`);
