@@ -3,9 +3,9 @@ class MasterPredictor {
         this.history = [];
         this.config = {
             minHistoryLength: 5,
-            maxHistoryLength: 100, // Tăng giới hạn để phân tích tốt hơn
+            maxHistoryLength: 100,
             patternRecognitionDepth: 7,
-            dynamicWeightAdjustment: false, // Tắt tạm thời để ổn định hơn
+            dynamicWeightAdjustment: false,
             streakBreakThreshold: 0.7,
             scoreAnalysisWeight: 0.3,
             patternAnalysisWeight: 0.25,
@@ -13,27 +13,16 @@ class MasterPredictor {
             statisticalAnalysisWeight: 0.15,
             volatilityAnalysisWeight: 0.1
         };
-        // Bind 'this' cho các hàm sẽ được gọi từ bên ngoài nếu cần, nhưng ở đây chúng ta gọi nội bộ
     }
 
     //=========== PHƯƠNG THỨC CÔNG KHAI ===========
-
-    /**
-     * Cập nhật lịch sử với kết quả phiên mới nhất
-     * @param {{score: number, result: string}} newResult - Kết quả mới (ví dụ: { score: 12, result: 'Tài' })
-     */
     updateData(newResult) {
         this.history.push(newResult);
-        // Giới hạn độ dài của lịch sử để tối ưu hiệu suất
         if (this.history.length > this.config.maxHistoryLength) {
             this.history.shift();
         }
     }
 
-    /**
-     * Thực hiện dự đoán cho phiên tiếp theo dựa trên lịch sử hiện tại
-     * @returns {object} - Đối tượng chứa dự đoán và phân tích
-     */
     predict() {
         try {
             const analysisResult = this.analyzeGameTrends(this.history);
@@ -41,7 +30,7 @@ class MasterPredictor {
             if (!analysisResult.prediction) {
                  return {
                     success: true,
-                    prediction: Math.random() < 0.5 ? 'Tài' : 'Xỉu', // Dự đoán ngẫu nhiên nếu không đủ dữ liệu
+                    prediction: Math.random() < 0.5 ? 'Tài' : 'Xỉu',
                     confidence: 0.5,
                     analysis: { mainReason: 'Insufficient data for a confident prediction, using fallback.' },
                     timestamp: new Date().toISOString()
@@ -67,9 +56,7 @@ class MasterPredictor {
         }
     }
 
-
     //=========== CÁC PHƯƠNG THỨC PHÂN TÍCH (Nội bộ) ===========
-    
     analyzeGameTrends(history) {
         if (!history || history.length < this.config.minHistoryLength) {
             return { prediction: null, confidence: 0, analysis: 'Insufficient data' };
@@ -91,8 +78,7 @@ class MasterPredictor {
             scoreBasedPrediction: this.scoreBasedPredictionModel(enhancedAnalysis.scorePatterns)
         };
 
-        const weights = this.config; // Tạm thời dùng trọng số tĩnh
-
+        const weights = this.config;
         const finalPrediction = this.calculateFinalPrediction(predictions, weights);
 
         return {
@@ -110,44 +96,31 @@ class MasterPredictor {
     detectScorePatterns(history) {
         const scores = history.map(r => r.score);
         const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-        
         const scoreDistribution = {
             taiRange: scores.filter(s => s > 10.5).length / scores.length,
             xiuRange: scores.filter(s => s < 10.5).length / scores.length,
         };
-
         const last10Scores = scores.slice(-10);
         const scoreTrend = {
             increasing: last10Scores.slice(1).filter((s, i) => s > last10Scores[i]).length,
             decreasing: last10Scores.slice(1).filter((s, i) => s < last10Scores[i]).length,
         };
-
-        return {
-            average: avgScore,
-            distribution: scoreDistribution,
-            trend: scoreTrend,
-        };
+        return { average: avgScore, distribution: scoreDistribution, trend: scoreTrend };
     }
 
     analyzeResultSequences(history) {
         const results = history.map(r => r.result);
         const patterns = [];
         const depth = Math.min(this.config.patternRecognitionDepth, results.length - 1);
-
         for (let i = 0; i <= results.length - depth; i++) {
-            const pattern = results.slice(i, i + depth).join('-');
-            patterns.push(pattern);
+            patterns.push(results.slice(i, i + depth).join('-'));
         }
-
         const patternCounts = patterns.reduce((acc, pattern) => {
             acc[pattern] = (acc[pattern] || 0) + 1;
             return acc;
         }, {});
-        
         const mostCommonPattern = Object.keys(patternCounts).length > 0 ? Object.entries(patternCounts).sort((a, b) => b[1] - a[1])[0] : null;
-
         const switches = results.slice(1).reduce((count, res, i) => count + (res !== results[i] ? 1 : 0), 0);
-
         return {
             patterns: patternCounts,
             mostCommonPattern: mostCommonPattern,
@@ -161,17 +134,13 @@ class MasterPredictor {
         const stdDev = this.calculateStandardDeviation(scores);
         const recentScores = scores.slice(-10);
         const recentStdDev = this.calculateStandardDeviation(recentScores);
-        
-        return {
-            isHighlyVolatile: recentStdDev > 3.5
-        };
+        return { isHighlyVolatile: recentStdDev > 3.5 };
     }
 
     calculateStatisticalTrends(history) {
         const results = history.map(r => r.result);
         const taiCount = results.filter(r => r === 'Tài').length;
         const xiuCount = results.length - taiCount;
-      
         return {
             taiProbability: taiCount / results.length,
             xiuProbability: xiuCount / results.length,
@@ -182,15 +151,12 @@ class MasterPredictor {
     performStreakAnalysis(history) {
         const results = history.map(r => r.result);
         if (results.length === 0) return { currentStreak: 0 };
-
         let currentStreak = 1;
         const currentResult = results[results.length - 1];
-        
         for (let i = results.length - 2; i >= 0; i--) {
             if (results[i] === currentResult) currentStreak++;
             else break;
         }
-        
         const allStreaks = [];
         let streakCount = 1;
         for (let i = 1; i < results.length; i++) {
@@ -202,12 +168,9 @@ class MasterPredictor {
             }
         }
         allStreaks.push(streakCount);
-        
         const avgStreak = allStreaks.length > 0 ? allStreaks.reduce((a, b) => a + b, 0) / allStreaks.length : 1;
         const maxStreak = allStreaks.length > 0 ? Math.max(...allStreaks) : 1;
-        
         const streakEndProbability = this.calculateStreakEndProbability(currentStreak, avgStreak, maxStreak);
-
         return {
             currentStreak: currentStreak,
             currentResult: currentResult,
@@ -217,20 +180,14 @@ class MasterPredictor {
     }
 
     //=========== CÁC MÔ HÌNH DỰ ĐOÁN ===========
-
     patternRecognitionModel(sequenceAnalysis) {
         if (!sequenceAnalysis.mostCommonPattern) {
             return { prediction: null, confidence: 0 };
         }
-        
         const patternParts = sequenceAnalysis.mostCommonPattern[0].split('-');
         const expectedNext = patternParts[patternParts.length-1];
-
         if (sequenceAnalysis.mostCommonPattern[1] >= 2) {
-            return {
-                prediction: expectedNext,
-                confidence: Math.min(0.8, sequenceAnalysis.mostCommonPattern[1] * 0.2)
-            };
+            return { prediction: expectedNext, confidence: Math.min(0.8, sequenceAnalysis.mostCommonPattern[1] * 0.2) };
         }
         return { prediction: null, confidence: 0 };
     }
@@ -238,36 +195,21 @@ class MasterPredictor {
     statisticalPredictionModel(statisticalTrends) {
         const { taiProbability, xiuProbability, imbalance } = statisticalTrends;
         if (Math.abs(imbalance) > 0.3) {
-            return {
-                prediction: imbalance > 0 ? 'Xỉu' : 'Tài',
-                confidence: Math.min(0.8, Math.abs(imbalance) * 1.5)
-            };
+            return { prediction: imbalance > 0 ? 'Xỉu' : 'Tài', confidence: Math.min(0.8, Math.abs(imbalance) * 1.5) };
         }
-        return {
-            prediction: taiProbability > xiuProbability ? 'Tài' : 'Xỉu',
-            confidence: Math.abs(taiProbability - xiuProbability) * 0.8
-        };
+        return { prediction: taiProbability > xiuProbability ? 'Tài' : 'Xỉu', confidence: Math.abs(taiProbability - xiuProbability) * 0.8 };
     }
 
     volatilityAdjustmentModel(volatilityAnalysis) {
-        if (volatilityAnalysis.isHighlyVolatile) {
-            return { adjustment: -0.2 };
-        }
-        return { adjustment: 0.1 };
+        return { adjustment: volatilityAnalysis.isHighlyVolatile ? -0.2 : 0.1 };
     }
 
     streakPredictionModel(streakAnalysis) {
-        const { currentStreak, currentResult, streakEndProbability, isLongStreak } = streakAnalysis;
+        const { currentResult, streakEndProbability, isLongStreak } = streakAnalysis;
         if (isLongStreak && streakEndProbability > this.config.streakBreakThreshold) {
-            return {
-                prediction: currentResult === 'Tài' ? 'Xỉu' : 'Tài',
-                confidence: streakEndProbability * 0.9
-            };
+            return { prediction: currentResult === 'Tài' ? 'Xỉu' : 'Tài', confidence: streakEndProbability * 0.9 };
         }
-        return {
-            prediction: currentResult,
-            confidence: (1 - streakEndProbability) * 0.7
-        };
+        return { prediction: currentResult, confidence: (1 - streakEndProbability) * 0.7 };
     }
 
     scoreBasedPredictionModel(scoreAnalysis) {
@@ -278,20 +220,14 @@ class MasterPredictor {
         if (average < 9.5 && distribution.xiuRange > 0.6) {
             return { prediction: 'Xỉu', confidence: 0.75 };
         }
-        return {
-            prediction: average > 10.5 ? 'Tài' : 'Xỉu',
-            confidence: 0.6
-        };
+        return { prediction: average > 10.5 ? 'Tài' : 'Xỉu', confidence: 0.6 };
     }
 
     //=========== HÀM TỔNG HỢP & HỖ TRỢ ===========
-    
     calculateFinalPrediction(predictions, weights) {
         let taiScore = 0;
         let xiuScore = 0;
         let totalConfidence = 0;
-        const reasons = [];
-
         const models = [
             { pred: predictions.patternRecognition, weight: weights.patternAnalysisWeight },
             { pred: predictions.statisticalPrediction, weight: weights.statisticalAnalysisWeight },
@@ -311,21 +247,25 @@ class MasterPredictor {
             }
         });
 
-        if (taiScore + xiuScore === 0) { // Không có model nào đưa ra dự đoán
+        if (taiScore + xiuScore === 0) {
             return { prediction: null, confidence: 0 };
         }
 
         const volatilityAdjustment = predictions.volatilityAdjustment.adjustment;
         totalConfidence = Math.max(0.1, Math.min(0.95, totalConfidence + volatilityAdjustment));
         
-        const finalPrediction = taiScore > xiuScore ? 'Tài' : 'Xỉu';
+        // ==========================================================
+        // === DÒNG QUAN TRỌNG: ĐẢO NGƯỢC DỰ ĐOÁN CUỐI CÙNG =======
+        // ==========================================================
+        const finalPrediction = taiScore > xiuScore ? 'Xỉu' : 'Tài';
+        
         const confidenceRatio = Math.abs(taiScore - xiuScore) / (taiScore + xiuScore);
         const finalConfidence = totalConfidence * (0.5 + confidenceRatio * 0.5);
         
         return {
             prediction: finalPrediction,
             confidence: finalConfidence,
-            mainReason: 'Combined model prediction'
+            mainReason: 'Combined model prediction (Reversed)'
         };
     }
 
@@ -347,5 +287,4 @@ class MasterPredictor {
     }
 }
 
-// Xuất class để server.js có thể sử dụng
 module.exports = { MasterPredictor };
